@@ -1,13 +1,15 @@
 mod bundle;
+mod component;
 
 use bundle::*;
+use component::*;
 
 use bevy::prelude::*;
 use bevy::core::FixedTimestep;
 use bevy_rapier2d::prelude::*;
-use bevy::reflect::erased_serde::private::serde::__private::de::EnumDeserializer;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
-use bevy_prototype_lyon::prelude::ShapePlugin;
+use bevy_prototype_lyon::prelude::{ShapePlugin, StrokeMode};
+use bevy_prototype_lyon::draw::DrawMode;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 fn main() {
@@ -26,9 +28,11 @@ fn main() {
                 // .with_system(test_despawn)
                 .with_system(player_rotate_system)
                 .with_system(detect_objects_forward)
+                .with_system(player_grab_system)
                 .with_system(player_throw_system)
                 .with_system(player_movement_system)
                 .with_system(focus_camera)
+                .with_system(update_shape_of_detected_objects)
                 // .with_system(collision_detection_system)
                 // .with_system(update_health_display)
                 // .with_system(animate)
@@ -62,10 +66,6 @@ fn main() {
 //     }
 // }
 
-fn test() {
-    println!("Exit!");
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Setup,
@@ -73,34 +73,17 @@ enum AppState {
     EndGame,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-enum EndGameState {
-    Disabled,
-    Stats
-}
-
-#[derive(Component)]
-struct MainCamera;
-
-#[derive(Component)]
-struct Player;
-
-#[derive(Component)]
-struct Health {
-    hp: i32,
-}
-
-fn setup_menu(mut commands: Commands) {
-
-}
-
-fn menu(mut commands: Commands) {
-
-}
-
-fn cleanup_menu(mut commands: Commands) {
-
-}
+// fn setup_menu(mut commands: Commands) {
+//
+// }
+//
+// fn menu(mut commands: Commands) {
+//
+// }
+//
+// fn cleanup_menu(mut commands: Commands) {
+//
+// }
 
 const RAPIER_SCALE: f32 = 10.0;
 
@@ -161,6 +144,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     commands.insert_resource(EntityInRange { cur: None, prev: None });
 }
 
+#[derive(Debug)]
 #[derive(Default)]
 struct EntityInRange {
     prev: Option<Entity>,
@@ -172,12 +156,20 @@ fn start_game(mut app_state: ResMut<State<AppState>>) {
 }
 
 fn spawn_player(mut commands: Commands) {
-    let player = commands.spawn_bundle(PlayerBundle::new(0.0, 0.0)).id();
-    let object = commands.spawn_bundle(ObjectBundle::new(5.0, 0.0)).id();
-    let joint = RevoluteJoint::new()
+    let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
+    let object = commands.spawn_bundle(ObjectBundle::new(10.0, -10.0)).id();
+    println!("{:?} {:?}", player, object);
+    let axis = Vector::x_axis();
+    let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])
-        .local_anchor2(point![5.0, 0.0]);
-    commands.spawn().insert(JointBuilderComponent::new(joint, player, object));
+        .local_anchor2(point![0.0, 0.0])
+        .limit_axis([5.0, 7.0]);
+    let entity = commands
+        .spawn()
+        .insert(JointBuilderComponent::new(joint, player, object))
+        .id();
+    let joint: JointHandle = entity.handle();
+    println!("{:?}", joint);
     println!("spawned");
 }
 
@@ -193,6 +185,29 @@ fn player_rotate_system(
         let pos = pos - size / 2.0;
         let angle = pos.y.atan2(pos.x);
         player_pos.position.rotation = UnitComplex::new(angle);
+    }
+}
+
+fn player_grab_system(
+    mut commands: Commands,
+    buttons: Res<Input<MouseButton>>,
+    entity_in_range: Res<EntityInRange>,
+    player_query: Query<Entity, With<Player>>,
+) {
+    if buttons.pressed(MouseButton::Left) {
+        println!("{:?}", entity_in_range);
+        if let Some(entity) = entity_in_range.cur {
+            let player = player_query.single();
+            let axis = Vector::x_axis();
+            let joint = PrismaticJoint::new(axis)
+                .local_anchor1(point![0.0, 0.0])
+                .local_anchor2(point![0.0, 0.0])
+                .limit_axis([5.0, 7.0]);
+            let entity = commands.spawn().insert(JointBuilderComponent::new(joint, player, entity)).id();
+            let joint: JointHandle = entity.handle();
+            println!("{:?}", joint);
+            println!("new joint built");
+        }
     }
 }
 
@@ -224,30 +239,85 @@ fn detect_objects_forward(
     if let Some((handle, toi)) = query_pipeline.cast_ray(
         &collider_set, &ray, max_toi, solid, groups, filter
     ) {
-        let hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
+        let _hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
         entity_in_range.cur = Some(handle.entity());
         // println!("Entity {:?} hit at point {}", handle.entity(), hit_point);
     }
 }
 
+fn update_shape_of_detected_objects(
+    mut entity_in_range: ResMut<EntityInRange>,
+    mut query: Query<&mut DrawMode>
+) {
+    if entity_in_range.prev != entity_in_range.cur {
+        if let Some(entity) = entity_in_range.prev {
+            match query.get_mut(entity) {
+                Ok(mode) => {
+                    match mode.into_inner() {
+                        DrawMode::Outlined { fill_mode: _, outline_mode } => {
+                            *outline_mode = StrokeMode::new(Color::GRAY, 5.0);
+                        },
+                        _ => {}
+                    }
+                },
+                Err(_e) => {}
+            }
+        }
+        if let Some(entity) = entity_in_range.cur {
+            match query.get_mut(entity) {
+                Ok(mode) => {
+                    match mode.into_inner() {
+                        DrawMode::Outlined { fill_mode: _, outline_mode } => {
+                            *outline_mode = StrokeMode::new(Color::BLACK, 5.0);
+                        },
+                        _ => {}
+                    }
+                },
+                Err(_e) => {}
+            }
+        }
+    }
+    entity_in_range.prev = entity_in_range.cur;
+    entity_in_range.cur = None;
+}
+
 fn player_throw_system(
     keyboard_input: Res<Input<KeyCode>>,
+    mut q: QuerySet<(
+    QueryState<(Entity, &RigidBodyPositionComponent), With<Player>>,
+    QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Object>>,
+    QueryState<RigidBodyComponentsQueryPayload>
+    )>,
+    // player_query: Query<(Entity, &RigidBodyPositionComponent), With<Player>>,
+    // mut object_query: Query<&mut RigidBodyForcesComponent, With<Object>>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
-    mut rigid_body_query: Query<RigidBodyComponentsQueryPayload>
+    // mut rigid_body_query: Query<RigidBodyComponentsQueryPayload>
 ) {
-    let mut rigid_body_set = RigidBodyComponentsSet(rigid_body_query);
     if keyboard_input.pressed(KeyCode::Space) {
-        // println!("{}", 1);
-        let mut handles = vec![];
-        for (h, joint) in joint_set.iter() {
-            handles.push(h);
-            // print!("{:?} {:?} : ", joint.body1, joint.body2);
+        let (player, player_pos): (Entity, _) = q.q0().single();
+        let rigid_body_handle: RigidBodyHandle = player.handle();
+        let rot: UnitComplex<f32> = player_pos.position.rotation;
+        let dir_x = rot.cos_angle();
+        let dir_y = rot.sin_angle();
+        let dir_scale = 100.0;
+
+        use nalgebra::UnitComplex;
+        let iter = joint_set.joints_with(rigid_body_handle);
+        let mut object_query = q.q1();
+        for (h1, h2, j) in iter {
+            let (mut obj_vel, obj_mprops) = object_query.get_mut(h2.entity()).unwrap();
+            // object.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
+            obj_vel.apply_impulse(obj_mprops, Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into())
         }
-        for h in handles.into_iter() {
-            joint_set.remove(h, &mut island_manager, &mut rigid_body_set, false);
-        }
-        // print!("\n");
+
+        let mut rigid_body_set = RigidBodyComponentsSet(q.q2());
+        joint_set.remove_joints_attached_to_rigid_body(
+            rigid_body_handle,
+            &mut island_manager,
+            &mut rigid_body_set,
+        );
+        println!("removed");
     }
 }
 
@@ -323,7 +393,7 @@ fn collision_detection_system(
 
 fn despawn_the_dead(
     mut commands: Commands,
-    mut queries: Query<(Entity, &Health)>
+    queries: Query<(Entity, &Health)>
 ) {
     println!("despawn");
     for (entity, health) in queries.iter() {
@@ -376,9 +446,6 @@ fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDispla
     let (mut transform, mut health_bar) = health_bar_component.single_mut();
     health_bar.animate(transform);
 }
-
-#[derive(Component)]
-struct EndGameUI;
 
 fn load_end_game_display(mut commands: Commands) {
     commands.spawn_bundle(NodeBundle {

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use crate::{Player, Health};
+use crate::component::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 
@@ -50,48 +50,10 @@ impl PlayerBundle {
     }
 }
 
-// #[derive(Bundle)]
-// pub struct ObjectBundle {
-//     #[bundle]
-//     sprite: SpriteBundle,
-//     #[bundle]
-//     rigid_body: RigidBodyBundle,
-//     #[bundle]
-//     collider: ColliderBundle,
-//     sync: RigidBodyPositionSync,
-// }
-//
-// impl ObjectBundle {
-//     pub fn new(x: f32, y: f32) -> Self {
-//         ObjectBundle {
-//             sprite: SpriteBundle {
-//                 transform: Transform {
-//                     translation: Vec3::new(0.0, 0.0, 1.0),
-//                     scale: Vec3::new(40.0, 40.0, 0.0),
-//                     ..Default::default()
-//                 },
-//                 sprite: Sprite {
-//                     color: Color::rgba(0.5, 0.5, 0.5, 0.7),
-//                     ..Default::default()
-//                 },
-//                 ..Default::default()
-//             },
-//             rigid_body: RigidBodyBundle {
-//                 position: (Vec2::new(x, y), 0.0).into(),
-//                 ..Default::default()
-//             },
-//             collider: ColliderBundle {
-//                 shape: ColliderShape::cuboid(2.0, 2.0).into(),
-//                 flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
-//                 ..Default::default()
-//             },
-//             sync: RigidBodyPositionSync::Discrete,
-//         }
-//     }
-// }
-
 #[derive(Bundle)]
 pub struct ObjectBundle {
+    object: Object,
+
     #[bundle]
     shape: ShapeBundle,
     #[bundle]
@@ -110,11 +72,12 @@ impl ObjectBundle {
         };
 
         ObjectBundle {
+            object: Object {},
             shape: GeometryBuilder::build_as(
                 &shape,
                 DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::CYAN),
-                    outline_mode: StrokeMode::new(Color::BLACK, 5.0),
+                    fill_mode: FillMode::color(Color::YELLOW),
+                    outline_mode: StrokeMode::new(Color::GRAY, 5.0),
                 },
                 Transform::default()
             ),
@@ -124,6 +87,7 @@ impl ObjectBundle {
             },
             collider: ColliderBundle {
                 shape: ColliderShape::cuboid(2.0, 2.0).into(),
+                mass_properties: ColliderMassProps::Density(0.4).into(),
                 flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
                 ..Default::default()
             },
