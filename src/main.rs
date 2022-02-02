@@ -5,7 +5,6 @@ mod end_game;
 mod camera;
 
 use bundle::*;
-use component::*;
 use in_game::*;
 use end_game::*;
 use camera::*;
@@ -98,6 +97,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     });
 
     commands.insert_resource(EntityInRange { cur: None, prev: None });
+    commands.insert_resource(EntityInHand { entity: None });
 }
 
 fn start_game(mut app_state: ResMut<State<AppState>>) {

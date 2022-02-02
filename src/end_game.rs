@@ -23,18 +23,42 @@ impl Plugin for EndGamePlugin {
     }
 }
 
-fn load_end_game_display(mut commands: Commands) {
-    commands.spawn_bundle(NodeBundle {
-        style: Style {
-            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-            position_type: PositionType::Absolute,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexEnd,
+fn load_end_game_display(
+    mut commands: Commands,
+    mut asset_server: ResMut<AssetServer>
+) {
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                padding: Rect::all(Val::Percent(25.0)),
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            color: Color::rgba(0.2, 0.2, 0.2, 0.8).into(),
             ..Default::default()
-        },
-        color: Color::rgba(0.2, 0.2, 0.2, 0.8).into(),
-        ..Default::default()
-    }).insert(EndGameUI {});
+        })
+        .insert(EndGameUI {})
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle {
+                // style: Style {
+                //     padding: Rect::all(Val::Percent(20.0)),
+                //     ..Default::default()
+                // },
+                text: Text::with_section(
+                    "(press enter to continue)",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::ANTIQUE_WHITE,
+                    },
+                    Default::default(),
+                ),
+                ..Default::default()
+            });
+        });
 }
 
 fn end_game_input_system(
@@ -51,6 +75,6 @@ fn despawn_end_game_ui(
     mut queries: Query<Entity, With<EndGameUI>>
 ) {
     for entity in queries.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).despawn_recursive();
     }
 }

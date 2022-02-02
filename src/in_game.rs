@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
 
-use super::{AppState, TIME_STEP, RAPIER_SCALE};
+use super::{AppState, TIME_STEP};
 use crate::component::*;
 use crate::bundle::*;
 use crate::camera::*;
@@ -22,34 +22,37 @@ impl Plugin for InGamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(player_rotate_system)
-                    .with_system(player_grab_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
                     .with_system(move_camera)
-                // .with_system(collision_detection_system)
-                // .with_system(update_health_display)
-                // .with_system(animate)
-                // .with_system(update_game_state)
+                    .with_system(collision_detection)
+                    .with_system(update_game_state)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .label("detect")
+                    .label("detection")
                     .with_system(detect_objects_forward)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .after("detect")
+                    .after("detection")
                     .before("display")
-
+                    .with_system(player_grab_system)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("display")
                     .with_system(update_shape_of_detected_objects)
+                    .with_system(update_health_display)
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .label("animation")
+                    .with_system(animate)
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
-                    .with_system(despawn_the_dead)
+                    .with_system(despawn_dead_entities)
             );
     }
 }
@@ -61,22 +64,28 @@ pub struct EntityInRange {
     pub cur: Option<Entity>
 }
 
-fn spawn_player(mut commands: Commands) {
+#[derive(Debug)]
+#[derive(Default)]
+pub struct EntityInHand {
+    pub entity: Option<Entity>
+}
+
+fn spawn_player(
+    mut commands: Commands,
+    mut entity_in_hand: ResMut<EntityInHand>
+) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
     let object = commands.spawn_bundle(ObjectBundle::new(10.0, -10.0)).id();
-    println!("{:?} {:?}", player, object);
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])
         .local_anchor2(point![0.0, 0.0])
         .limit_axis([5.0, 7.0]);
-    let entity = commands
+    commands
         .spawn()
-        .insert(JointBuilderComponent::new(joint, player, object))
-        .id();
-    let joint: JointHandle = entity.handle();
-    println!("{:?}", joint);
-    println!("spawned");
+        .insert(JointBuilderComponent::new(joint, player, object));
+    entity_in_hand.entity = Some(object);
+    println!("spawned {:?} {:?}", player, object);
 }
 
 fn player_rotate_system(
@@ -98,9 +107,10 @@ fn player_grab_system(
     mut commands: Commands,
     buttons: Res<Input<MouseButton>>,
     entity_in_range: Res<EntityInRange>,
+    mut entity_in_hand: ResMut<EntityInHand>,
     player_query: Query<Entity, With<Player>>,
 ) {
-    if buttons.pressed(MouseButton::Left) {
+    if entity_in_hand.entity.is_none() && buttons.pressed(MouseButton::Left) {
         if let Some(entity) = entity_in_range.cur {
             let player = player_query.single();
             let axis = Vector::x_axis();
@@ -108,11 +118,48 @@ fn player_grab_system(
                 .local_anchor1(point![0.0, 0.0])
                 .local_anchor2(point![0.0, 0.0])
                 .limit_axis([5.0, 7.0]);
-            let entity = commands.spawn().insert(JointBuilderComponent::new(joint, player, entity)).id();
-            let joint: JointHandle = entity.handle();
-            println!("{:?}", joint);
-            println!("new joint built");
+            commands.spawn().insert(JointBuilderComponent::new(joint, player, entity));
+            entity_in_hand.entity = Some(entity);
+            println!("new joint built with {:?}", entity);
         }
+    }
+}
+
+fn player_throw_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut joint_set: ResMut<ImpulseJointSet>,
+    mut island_manager: ResMut<IslandManager>,
+    mut entity_in_hand: ResMut<EntityInHand>,
+    mut q: QuerySet<(
+        QueryState<(Entity, &RigidBodyPositionComponent), With<Player>>,
+        QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Object>>,
+        QueryState<RigidBodyComponentsQueryPayload>
+    )>,
+) {
+    if entity_in_hand.entity.is_some() && keyboard_input.pressed(KeyCode::Space) {
+        let (player, player_pos): (Entity, _) = q.q0().single();
+        let rigid_body_handle: RigidBodyHandle = player.handle();
+        let rot: UnitComplex<f32> = player_pos.position.rotation;
+        let dir_x = rot.cos_angle();
+        let dir_y = rot.sin_angle();
+        let dir_scale = 1000.0;
+
+        use nalgebra::UnitComplex;
+        let iter = joint_set.joints_with(rigid_body_handle);
+        let mut object_query = q.q1();
+        for (h1, h2, j) in iter {
+            let (mut obj_vel, obj_mprops) = object_query.get_mut(h2.entity()).unwrap();
+            // object.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
+            obj_vel.apply_impulse(obj_mprops, Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into())
+        }
+
+        let mut rigid_body_set = RigidBodyComponentsSet(q.q2());
+        joint_set.remove_joints_attached_to_rigid_body(
+            rigid_body_handle,
+            &mut island_manager,
+            &mut rigid_body_set,
+        );
+        entity_in_hand.entity = None;
     }
 }
 
@@ -186,46 +233,6 @@ fn update_shape_of_detected_objects(
     entity_in_range.cur = None;
 }
 
-fn player_throw_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut q: QuerySet<(
-        QueryState<(Entity, &RigidBodyPositionComponent), With<Player>>,
-        QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Object>>,
-        QueryState<RigidBodyComponentsQueryPayload>
-    )>,
-    // player_query: Query<(Entity, &RigidBodyPositionComponent), With<Player>>,
-    // mut object_query: Query<&mut RigidBodyForcesComponent, With<Object>>,
-    mut joint_set: ResMut<ImpulseJointSet>,
-    mut island_manager: ResMut<IslandManager>,
-    // mut rigid_body_query: Query<RigidBodyComponentsQueryPayload>
-) {
-    if keyboard_input.pressed(KeyCode::Space) {
-        let (player, player_pos): (Entity, _) = q.q0().single();
-        let rigid_body_handle: RigidBodyHandle = player.handle();
-        let rot: UnitComplex<f32> = player_pos.position.rotation;
-        let dir_x = rot.cos_angle();
-        let dir_y = rot.sin_angle();
-        let dir_scale = 100.0;
-
-        use nalgebra::UnitComplex;
-        let iter = joint_set.joints_with(rigid_body_handle);
-        let mut object_query = q.q1();
-        for (h1, h2, j) in iter {
-            let (mut obj_vel, obj_mprops) = object_query.get_mut(h2.entity()).unwrap();
-            // object.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
-            obj_vel.apply_impulse(obj_mprops, Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into())
-        }
-
-        let mut rigid_body_set = RigidBodyComponentsSet(q.q2());
-        joint_set.remove_joints_attached_to_rigid_body(
-            rigid_body_handle,
-            &mut island_manager,
-            &mut rigid_body_set,
-        );
-        // println!("removed");
-    }
-}
-
 fn player_movement_system(
     app_state: Res<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -262,7 +269,7 @@ fn player_movement_system(
     }
 }
 
-fn collision_detection_system(
+fn collision_detection(
     mut contact_events: EventReader<ContactEvent>,
     mut health_queries: Query<&mut Health>,
 ) {
@@ -270,10 +277,10 @@ fn collision_detection_system(
         match contact_event {
             ContactEvent::Started(h1, h2) => {
                 if let Ok(mut health) = health_queries.get_mut(h1.entity()) {
-                    health.hp -= 10;
+                    health.hp -= 5;
                 }
                 if let Ok(mut health) = health_queries.get_mut(h2.entity()) {
-                    health.hp -= 10;
+                    health.hp -= 5;
                 }
             },
             _ => {}
@@ -281,18 +288,29 @@ fn collision_detection_system(
     }
 }
 
-fn despawn_the_dead(
+fn despawn_dead_entities(
     mut commands: Commands,
-    queries: Query<(Entity, &Health)>
+    mut joint_set: ResMut<ImpulseJointSet>,
+    mut island_manager: ResMut<IslandManager>,
+    mut entity_in_hand: ResMut<EntityInHand>,
+    mut q: QuerySet<(
+        QueryState<(Entity, &Health), With<Player>>,
+        QueryState<RigidBodyComponentsQueryPayload>
+    )>,
 ) {
-    println!("despawn");
-    for (entity, health) in queries.iter() {
-        if health.hp <= 0 {
-            println!("{:?}", commands.entity(entity).id());
+    let (player_entity, player_health): (Entity, &Health) = q.q0().single();
+    if player_health.hp <= 0 {
+        let rigid_body_handle: RigidBodyHandle = player_entity.handle();
 
-            commands.entity(entity).despawn();
-            println!("despawn done");
-        }
+        let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
+        joint_set.remove_joints_attached_to_rigid_body(
+            rigid_body_handle,
+            &mut island_manager,
+            &mut rigid_body_set,
+        );
+
+        commands.entity(player_entity).despawn();
+        entity_in_hand.entity = None;
     }
 }
 
@@ -317,6 +335,11 @@ fn update_health_display (
     health_bar.cur_percent = health.hp as f32;
 }
 
+fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDisplayComponent)>) {
+    let (mut transform, mut health_bar) = health_bar_component.single_mut();
+    health_bar.animate(transform);
+}
+
 fn update_game_state(
     mut app_state: ResMut<State<AppState>>,
     player_health: Query<&Health, With<Player>>,
@@ -330,9 +353,4 @@ fn update_game_state(
         }
         _ => {}
     }
-}
-
-fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDisplayComponent)>) {
-    let (mut transform, mut health_bar) = health_bar_component.single_mut();
-    health_bar.animate(transform);
 }
