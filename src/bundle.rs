@@ -4,6 +4,8 @@ use crate::component::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 
+const LYON_SCALE: f32 = 10.0;
+
 #[derive(Bundle)]
 pub struct PlayerBundle {
     player: Player,
@@ -79,7 +81,10 @@ impl ObjectBundle {
                     fill_mode: FillMode::color(Color::YELLOW),
                     outline_mode: StrokeMode::new(Color::GRAY, 5.0),
                 },
-                Transform::default()
+                Transform {
+                    translation: Vec3::new(0.0, 0.0, 1.0),
+                    ..Default::default()
+                },
             ),
             rigid_body: RigidBodyBundle {
                 position: (Vec2::new(x, y), 0.0).into(),
@@ -89,6 +94,53 @@ impl ObjectBundle {
                 shape: ColliderShape::cuboid(2.0, 2.0).into(),
                 mass_properties: ColliderMassProps::Density(0.4).into(),
                 flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
+                ..Default::default()
+            },
+            sync: RigidBodyPositionSync::Discrete,
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct StaticBundle {
+    #[bundle]
+    shape: ShapeBundle,
+    #[bundle]
+    rigid_body: RigidBodyBundle,
+    #[bundle]
+    collider: ColliderBundle,
+    sync: RigidBodyPositionSync,
+}
+
+impl StaticBundle {
+    // pub fn new(shape: &impl Geometry) -> Self {
+    //
+    // }
+
+    pub fn new_rect(half_extents: Vec2, origin: Vec2) -> Self {
+        let shape = shapes::Rectangle {
+            extents: half_extents.clone() * 2.0 * LYON_SCALE,
+            origin: RectangleOrigin::Center
+        };
+        StaticBundle {
+            shape: GeometryBuilder::build_as(
+                &shape,
+                DrawMode::Outlined {
+                    fill_mode: FillMode::color(Color::ALICE_BLUE),
+                    outline_mode: StrokeMode::new(Color::GRAY, 5.0),
+                },
+                Transform {
+                    translation: Vec3::new(origin.x, origin.y, 1.0),
+                    ..Default::default()
+                },
+            ),
+            rigid_body: RigidBodyBundle {
+                position: (origin, 0.0).into(),
+                body_type: RigidBodyType::Static.into(),
+                ..Default::default()
+            },
+            collider: ColliderBundle {
+                shape: ColliderShape::cuboid(half_extents.x, half_extents.y).into(),
                 ..Default::default()
             },
             sync: RigidBodyPositionSync::Discrete,

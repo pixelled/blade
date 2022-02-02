@@ -2,11 +2,13 @@ mod bundle;
 mod component;
 mod in_game;
 mod end_game;
+mod camera;
 
 use bundle::*;
 use component::*;
 use in_game::*;
 use end_game::*;
+use camera::*;
 
 use bevy::prelude::*;
 use bevy::core::FixedTimestep;
@@ -32,14 +34,6 @@ fn main() {
         .run();
 }
 
-// fn test_despawn(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>, query: Query<Entity, With<Player>>) {
-//     if keyboard_input.just_pressed(KeyCode::Space) {
-//         let p = query.single();
-//         commands.entity(p).despawn();
-//         println!("done");
-//     }
-// }
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Setup,
@@ -47,23 +41,12 @@ enum AppState {
     EndGame,
 }
 
-// fn setup_menu(mut commands: Commands) {
-//
-// }
-//
-// fn menu(mut commands: Commands) {
-//
-// }
-//
-// fn cleanup_menu(mut commands: Commands) {
-//
-// }
-
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config: ResMut<RapierConfiguration>) {
     config.gravity = Vec2::new(0.0, 0.0).into();
     config.scale = RAPIER_SCALE;
 
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d()).insert(MainCamera {});
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d())
+            .insert(MainCamera::default());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(SpriteBundle {
         transform: Transform {
@@ -76,6 +59,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     commands.spawn_bundle(ObjectBundle::new(5.0, 5.0));
     commands.spawn_bundle(ObjectBundle::new(-5.0, 5.0));
     commands.spawn_bundle(BarBundle::new(0.0,0.0, &asset_server));
+    spawn_boundary(&mut commands);
 
     spawn_health_bar(&mut commands);
     commands.spawn_bundle(HealthTextBundle::new(&asset_server));
@@ -118,4 +102,23 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
 
 fn start_game(mut app_state: ResMut<State<AppState>>) {
     let _ = app_state.set(AppState::InGame).unwrap();
+}
+
+fn spawn_boundary(mut commands: &mut Commands) {
+    commands.spawn_bundle(StaticBundle::new_rect(
+        Vec2::new(112.0, 1.0),
+        Vec2::new(0.0, -63.0)
+    ));
+    commands.spawn_bundle(StaticBundle::new_rect(
+        Vec2::new(112.0, 1.0),
+        Vec2::new(0.0, 63.0)
+    ));
+    commands.spawn_bundle(StaticBundle::new_rect(
+        Vec2::new(1.0, 63.0),
+        Vec2::new(112.0, 0.0)
+    ));
+    commands.spawn_bundle(StaticBundle::new_rect(
+        Vec2::new(1.0, 63.0),
+        Vec2::new(-112.0, 0.0)
+    ));
 }

@@ -7,6 +7,7 @@ use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
 use super::{AppState, TIME_STEP, RAPIER_SCALE};
 use crate::component::*;
 use crate::bundle::*;
+use crate::camera::*;
 
 pub struct InGamePlugin;
 
@@ -17,6 +18,14 @@ impl Plugin for InGamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(player_rotate_system)
+                    .with_system(player_grab_system)
+                    .with_system(player_throw_system)
+                    .with_system(player_movement_system)
+                    .with_system(move_camera)
                 // .with_system(collision_detection_system)
                 // .with_system(update_health_display)
                 // .with_system(animate)
@@ -24,17 +33,18 @@ impl Plugin for InGamePlugin {
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .before("detection_update")
-                    .with_system(player_rotate_system)
+                    .label("detect")
                     .with_system(detect_objects_forward)
-                    .with_system(player_grab_system).before("detection_update")
-                    .with_system(player_throw_system)
-                    .with_system(player_movement_system)
-                    .with_system(focus_camera)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .label("detection_update")
+                    .after("detect")
+                    .before("display")
+
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .label("display")
                     .with_system(update_shape_of_detected_objects)
             )
             .add_system_set(
@@ -91,7 +101,6 @@ fn player_grab_system(
     player_query: Query<Entity, With<Player>>,
 ) {
     if buttons.pressed(MouseButton::Left) {
-        println!("{:?}", entity_in_range);
         if let Some(entity) = entity_in_range.cur {
             let player = player_query.single();
             let axis = Vector::x_axis();
@@ -251,21 +260,6 @@ fn player_movement_system(
     } else {
         player_forces.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
     }
-}
-
-fn focus_camera(
-    app_state: Res<State<AppState>>,
-    player: Query<&RigidBodyPositionComponent, With<Player>>,
-    mut camera: Query<&mut Transform, With<MainCamera>>
-) {
-    if *app_state.current() == AppState::EndGame {
-        return
-    }
-    let position = player.single();
-    let translation = &position.position.translation;
-    let mut camera_transform = camera.single_mut();
-    camera_transform.translation.x = translation.vector.x * RAPIER_SCALE;
-    camera_transform.translation.y = translation.vector.y * RAPIER_SCALE;
 }
 
 fn collision_detection_system(
