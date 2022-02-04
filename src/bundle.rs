@@ -27,7 +27,7 @@ impl PlayerBundle {
             health: Health { hp: 100 },
             sprite: SpriteBundle {
                 transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, 1.0),
+                    translation: Vec3::new(0.0, 0.0, 2.0),
                     scale: Vec3::new(40.0, 40.0, 0.0),
                     ..Default::default()
                 },
@@ -55,6 +55,7 @@ impl PlayerBundle {
 #[derive(Bundle)]
 pub struct ObjectBundle {
     object: Object,
+    throwable: Throwable,
 
     #[bundle]
     shape: ShapeBundle,
@@ -67,14 +68,20 @@ pub struct ObjectBundle {
 
 impl ObjectBundle {
     pub fn new(x: f32, y: f32) -> Self {
-        let shape = shapes::RegularPolygon {
-            sides: 4,
-            feature: shapes::RegularPolygonFeature::Radius(30.0),
-            ..shapes::RegularPolygon::default()
+        // let shape = shapes::RegularPolygon {
+        //     sides: 4,
+        //     feature: shapes::RegularPolygonFeature::Radius(30.0),
+        //     ..shapes::RegularPolygon::default()
+        // };
+
+        let shape = shapes::Rectangle {
+            extents: Vec2::new(4.0, 2.0) * 2.0 * LYON_SCALE,
+            origin: RectangleOrigin::Center
         };
 
         ObjectBundle {
             object: Object {},
+            throwable: Throwable {},
             shape: GeometryBuilder::build_as(
                 &shape,
                 DrawMode::Outlined {
@@ -91,7 +98,7 @@ impl ObjectBundle {
                 ..Default::default()
             },
             collider: ColliderBundle {
-                shape: ColliderShape::cuboid(2.0, 2.0).into(),
+                shape: ColliderShape::cuboid(4.0, 2.0).into(),
                 mass_properties: ColliderMassProps::Density(0.4).into(),
                 flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
                 ..Default::default()

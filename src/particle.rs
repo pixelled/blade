@@ -13,6 +13,7 @@ pub struct ParticlePlugin;
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_event::<DespawnEvent>()
             .insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
             .add_system_set(
                 SystemSet::new()
@@ -39,13 +40,24 @@ struct ParticleVel(Vec3);
 #[derive(Component)]
 struct ParticleAcc(Vec3);
 
+pub struct DespawnEvent(pub Vec3);
+
 fn spawn_particles(
+    mut commands: Commands,
+    mut ev_despawn: EventReader<DespawnEvent>,
+) {
+    for ev in ev_despawn.iter() {
+        spawn_particle_group(&mut commands, ev.0, 5);
+    }
+}
+
+fn spawn_particles_timer(
     mut commands: Commands,
     time: Res<Time>,
     mut timer: ResMut<SpawnTimer>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        spawn_particle_group(&mut commands, Vec2::new(0.0, 0.0), 20);
+        spawn_particle_group(&mut commands, Vec3::new(0.0, 0.0, 0.0), 20);
     }
 }
 
@@ -83,7 +95,7 @@ fn apply_forces() {
 
 }
 
-fn spawn_particle_group(commands: &mut Commands, origin: Vec2, num: i32) {
+fn spawn_particle_group(commands: &mut Commands, origin: Vec3, num: i32) {
     let mut rng = thread_rng();
     let shape = shapes::Rectangle {
         extents: Vec2::new(1.0, 1.0) * 2.0 * LYON_SCALE,

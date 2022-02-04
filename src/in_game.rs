@@ -8,6 +8,8 @@ use super::{AppState, TIME_STEP};
 use crate::component::*;
 use crate::bundle::*;
 use crate::camera::*;
+use crate::particle::*;
+use std::f32::consts::PI;
 
 pub struct InGamePlugin;
 
@@ -27,6 +29,7 @@ impl Plugin for InGamePlugin {
                     .with_system(move_camera)
                     .with_system(collision_detection)
                     .with_system(update_game_state)
+                    .with_system(test_particle_system)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -80,7 +83,7 @@ fn spawn_player(
     let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])
         .local_anchor2(point![0.0, 0.0])
-        .limit_axis([5.0, 7.0]);
+        .limit_axis([7.0, 8.0]);
     commands
         .spawn()
         .insert(JointBuilderComponent::new(joint, player, object));
@@ -90,16 +93,17 @@ fn spawn_player(
 
 fn player_rotate_system(
     windows: Res<Windows>,
-    mut player: Query<&mut RigidBodyPositionComponent, With<Player>>
+    mut player: Query<(&RigidBodyPositionComponent, &mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Player>>
 ) {
     let window = windows.get_primary().unwrap();
     if let Some(pos) = window.cursor_position() {
-        let mut player_pos = player.single_mut();
+        let (player_pos, mut player_vel, player_mprops) = player.single_mut();
         use nalgebra::UnitComplex;
         let size = Vec2::new(window.width() as f32, window.height() as f32);
         let pos = pos - size / 2.0;
-        let angle = pos.y.atan2(pos.x);
-        player_pos.position.rotation = UnitComplex::new(angle);
+        let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
+        let rot = player_pos.position.rotation.angle_to(&cursor_rot);
+        player_vel.angvel = rot / PI * 20.0;
     }
 }
 
@@ -132,11 +136,12 @@ fn player_throw_system(
     mut entity_in_hand: ResMut<EntityInHand>,
     mut q: QuerySet<(
         QueryState<(Entity, &RigidBodyPositionComponent), With<Player>>,
-        QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Object>>,
+        QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Throwable>>,
         QueryState<RigidBodyComponentsQueryPayload>
     )>,
 ) {
     if entity_in_hand.entity.is_some() && keyboard_input.pressed(KeyCode::Space) {
+        use nalgebra::UnitComplex;
         let (player, player_pos): (Entity, _) = q.q0().single();
         let rigid_body_handle: RigidBodyHandle = player.handle();
         let rot: UnitComplex<f32> = player_pos.position.rotation;
@@ -144,7 +149,6 @@ fn player_throw_system(
         let dir_y = rot.sin_angle();
         let dir_scale = 1000.0;
 
-        use nalgebra::UnitComplex;
         let iter = joint_set.joints_with(rigid_body_handle);
         let mut object_query = q.q1();
         for (h1, h2, j) in iter {
@@ -167,6 +171,7 @@ fn detect_objects_forward(
     query_pipeline: Res<QueryPipeline>,
     collider_query: QueryPipelineColliderComponentsQuery,
     player_query: Query<&RigidBodyPositionComponent, With<Player>>,
+    throwable_query: Query<&Throwable>,
     mut entity_in_range: ResMut<EntityInRange>,
 ) {
     let collider_set = QueryPipelineColliderComponentsSet(&collider_query);
@@ -191,9 +196,11 @@ fn detect_objects_forward(
     if let Some((handle, toi)) = query_pipeline.cast_ray(
         &collider_set, &ray, max_toi, solid, groups, filter
     ) {
-        let _hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
-        entity_in_range.cur = Some(handle.entity());
-        // println!("Entity {:?} hit at point {}", handle.entity(), hit_point);
+        if throwable_query.get(handle.entity()).is_ok() {
+            let _hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
+            entity_in_range.cur = Some(handle.entity());
+            // println!("Entity {:?} hit at point {}", handle.entity(), hit_point);
+        }
     }
 }
 
@@ -271,11 +278,29 @@ fn player_movement_system(
 
 fn collision_detection(
     mut contact_events: EventReader<ContactEvent>,
+    entity_in_hand: Res<EntityInHand>,
     mut health_queries: Query<&mut Health>,
+    player_query: Query<&Player>,
 ) {
     for contact_event in contact_events.iter() {
         match contact_event {
             ContactEvent::Started(h1, h2) => {
+                // TODO: optimization
+                if player_query.get(h1.entity()).is_ok() {
+                    if let Some(e) = entity_in_hand.entity {
+                        if e == h2.entity() {
+                            continue;
+                        }
+                    }
+                }
+                if player_query.get(h2.entity()).is_ok() {
+                    if let Some(e) = entity_in_hand.entity {
+                        if e == h1.entity() {
+                            continue;
+                        }
+                    }
+                }
+
                 if let Ok(mut health) = health_queries.get_mut(h1.entity()) {
                     health.hp -= 5;
                 }
@@ -288,18 +313,29 @@ fn collision_detection(
     }
 }
 
+fn test_particle_system(
+    mut ev_despawn: EventWriter<DespawnEvent>,
+    q: Query<&Transform, With<Player>>,
+) {
+    let q = q.single();
+    ev_despawn.send(DespawnEvent(q.translation));
+}
+
 fn despawn_dead_entities(
     mut commands: Commands,
+    mut ev_despawn: EventWriter<DespawnEvent>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
     mut q: QuerySet<(
-        QueryState<(Entity, &Health), With<Player>>,
+        QueryState<(Entity, &Health, &Transform), With<Player>>,
         QueryState<RigidBodyComponentsQueryPayload>
     )>,
 ) {
-    let (player_entity, player_health): (Entity, &Health) = q.q0().single();
+    let (player_entity, player_health, pos): (Entity, &Health, _) = q.q0().single();
     if player_health.hp <= 0 {
+        ev_despawn.send(DespawnEvent(pos.translation));
+
         let rigid_body_handle: RigidBodyHandle = player_entity.handle();
 
         let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
