@@ -1,3 +1,4 @@
-/target
+**/target
+/wasm/assets
 /.idea
 /todo.txt
