@@ -3,11 +3,13 @@ mod component;
 mod in_game;
 mod end_game;
 mod camera;
+mod particle;
 
 use bundle::*;
 use in_game::*;
 use end_game::*;
 use camera::*;
+use particle::*;
 
 use bevy::prelude::*;
 use bevy::core::FixedTimestep;
@@ -16,6 +18,7 @@ use bevy_prototype_lyon::prelude::ShapePlugin;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 const RAPIER_SCALE: f32 = 10.0;
+const LYON_SCALE: f32 = 10.0;
 
 fn main() {
     App::new()
@@ -23,6 +26,7 @@ fn main() {
         .add_plugin(ShapePlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_state(AppState::Setup)
+        .add_plugin(ParticlePlugin)
         .add_system_set(
             SystemSet::on_enter(AppState::Setup)
                 .with_system(setup_game)
@@ -104,7 +108,7 @@ fn start_game(mut app_state: ResMut<State<AppState>>) {
     let _ = app_state.set(AppState::InGame).unwrap();
 }
 
-fn spawn_boundary(mut commands: &mut Commands) {
+fn spawn_boundary(commands: &mut Commands) {
     commands.spawn_bundle(StaticBundle::new_rect(
         Vec2::new(112.0, 1.0),
         Vec2::new(0.0, -63.0)

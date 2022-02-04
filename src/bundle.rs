@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use crate::component::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 
-const LYON_SCALE: f32 = 10.0;
+use super::LYON_SCALE;
+use crate::component::*;
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
