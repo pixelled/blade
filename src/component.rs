@@ -33,5 +33,22 @@ impl Storage {
     }
 }
 
+#[derive(Debug)]
+#[derive(Default)]
+pub struct StorageInHand {
+    pub prev: Option<usize>,
+    pub cur: Option<usize>
+}
+
+#[derive(Default)]
+pub struct StorageUIs {
+    pub uis: std::vec::Vec<Entity>,
+}
+
+#[derive(Component)]
+pub struct StorageUI {
+    // pub rot: f32,
+}
+
 #[derive(Component)]
 pub struct EndGameUI;
