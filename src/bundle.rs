@@ -5,11 +5,13 @@ use bevy_prototype_lyon::prelude::*;
 
 use super::LYON_SCALE;
 use crate::component::*;
+use crate::synthesis::*;
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
     player: Player,
     health: Health,
+    storage: Storage,
 
     #[bundle]
     sprite: SpriteBundle,
@@ -25,6 +27,7 @@ impl PlayerBundle {
         PlayerBundle {
             player: Player {},
             health: Health { hp: 100 },
+            storage: Storage { shapes: vec![0; STORAGE_SIZE] },
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 2.0),

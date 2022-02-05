@@ -18,4 +18,20 @@ pub struct Health {
 pub struct Damage(i32);
 
 #[derive(Component)]
+pub struct Storage {
+    pub shapes: std::vec::Vec<u8>,
+}
+
+impl Storage {
+    pub fn insert(&mut self, id: u8) {
+        for i in self.shapes.iter_mut() {
+            if *i == 0 {
+                *i = id;
+                break;
+            }
+        }
+    }
+}
+
+#[derive(Component)]
 pub struct EndGameUI;

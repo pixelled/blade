@@ -121,7 +121,7 @@ fn player_grab_system(
             let joint = PrismaticJoint::new(axis)
                 .local_anchor1(point![0.0, 0.0])
                 .local_anchor2(point![0.0, 0.0])
-                .limit_axis([5.0, 7.0]);
+                .limit_axis([4.0, 7.0]);
             commands.spawn().insert(JointBuilderComponent::new(joint, player, entity));
             entity_in_hand.entity = Some(entity);
             println!("new joint built with {:?}", entity);

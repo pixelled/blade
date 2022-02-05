@@ -4,12 +4,14 @@ mod in_game;
 mod end_game;
 mod camera;
 mod particle;
+mod synthesis;
 
 use bundle::*;
 use in_game::*;
 use end_game::*;
 use camera::*;
 use particle::*;
+use synthesis::*;
 
 use bevy::prelude::*;
 use bevy::core::FixedTimestep;
@@ -30,9 +32,13 @@ fn main() {
         .add_system_set(
             SystemSet::on_enter(AppState::Setup)
                 .with_system(setup_game)
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::Setup)
                 .with_system(start_game)
         )
         .add_plugin(InGamePlugin)
+        .add_plugin(SynthesisPlugin)
         .add_plugin(EndGamePlugin)
         .run();
 }
