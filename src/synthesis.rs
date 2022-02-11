@@ -83,6 +83,7 @@ fn store_entity(
 }
 
 fn synthesize_entity(
+
 ) {
 
 }
@@ -101,8 +102,7 @@ fn hold_stored_entity(
     if let Some(i) = storage_in_hand.cur {
         if storage.shapes[i] != 0 {
             let object = commands.spawn_bundle(ObjectBundle::new(
-                rb_pos.position.translation.x + 10.0,
-                rb_pos.position.translation.y
+                Vec2::new(rb_pos.position.translation.x + 10.0, rb_pos.position.translation.y), i
             )).id();
             let axis = Vector::x_axis();
             let joint = PrismaticJoint::new(axis)

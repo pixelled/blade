@@ -78,7 +78,7 @@ fn spawn_player(
     mut entity_in_hand: ResMut<EntityInHand>
 ) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
-    let object = commands.spawn_bundle(ObjectBundle::new(10.0, -10.0)).id();
+    let object = commands.spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), 0)).id();
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])
@@ -214,7 +214,10 @@ fn update_shape_of_detected_objects(
                 Ok(mode) => {
                     match mode.into_inner() {
                         DrawMode::Outlined { fill_mode: _, outline_mode } => {
-                            *outline_mode = StrokeMode::new(Color::GRAY, 5.0);
+                            let c = outline_mode.color.as_hlsa_f32();
+                            *outline_mode = StrokeMode::new(
+                                Color::hsl(c[0], c[1], 0.4).into(), 5.0
+                            );
                         },
                         _ => {}
                     }
@@ -227,7 +230,10 @@ fn update_shape_of_detected_objects(
                 Ok(mode) => {
                     match mode.into_inner() {
                         DrawMode::Outlined { fill_mode: _, outline_mode } => {
-                            *outline_mode = StrokeMode::new(Color::BLACK, 5.0);
+                            let c = outline_mode.color.as_hlsa_f32();
+                            *outline_mode = StrokeMode::new(
+                                Color::hsl(c[0], c[1], 0.1).into(), 5.0
+                            );
                         },
                         _ => {}
                     }

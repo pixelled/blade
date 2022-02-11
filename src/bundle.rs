@@ -6,6 +6,7 @@ use bevy_prototype_lyon::prelude::*;
 use super::LYON_SCALE;
 use crate::component::*;
 use crate::synthesis::*;
+use crate::shape_mod::*;
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -57,57 +58,21 @@ impl PlayerBundle {
 
 #[derive(Bundle)]
 pub struct ObjectBundle {
-    object: Object,
-    throwable: Throwable,
+    pub object: Object,
+    pub throwable: Throwable,
 
     #[bundle]
-    shape: ShapeBundle,
+    pub shape: ShapeBundle,
     #[bundle]
-    rigid_body: RigidBodyBundle,
+    pub rigid_body: RigidBodyBundle,
     #[bundle]
-    collider: ColliderBundle,
-    sync: RigidBodyPositionSync,
+    pub collider: ColliderBundle,
+    pub sync: RigidBodyPositionSync,
 }
 
 impl ObjectBundle {
-    pub fn new(x: f32, y: f32) -> Self {
-        // let shape = shapes::RegularPolygon {
-        //     sides: 4,
-        //     feature: shapes::RegularPolygonFeature::Radius(30.0),
-        //     ..shapes::RegularPolygon::default()
-        // };
-
-        let shape = shapes::Rectangle {
-            extents: Vec2::new(4.0, 2.0) * 2.0 * LYON_SCALE,
-            origin: RectangleOrigin::Center
-        };
-
-        ObjectBundle {
-            object: Object {},
-            throwable: Throwable {},
-            shape: GeometryBuilder::build_as(
-                &shape,
-                DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::YELLOW),
-                    outline_mode: StrokeMode::new(Color::GRAY, 5.0),
-                },
-                Transform {
-                    translation: Vec3::new(0.0, 0.0, 1.0),
-                    ..Default::default()
-                },
-            ),
-            rigid_body: RigidBodyBundle {
-                position: (Vec2::new(x, y), 0.0).into(),
-                ..Default::default()
-            },
-            collider: ColliderBundle {
-                shape: ColliderShape::cuboid(4.0, 2.0).into(),
-                mass_properties: ColliderMassProps::Density(0.4).into(),
-                flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
-                ..Default::default()
-            },
-            sync: RigidBodyPositionSync::Discrete,
-        }
+    pub fn new(pos: Vec2, id: usize) -> Self {
+        OBJECTS[id as usize](pos)
     }
 }
 
