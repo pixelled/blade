@@ -78,7 +78,7 @@ fn spawn_player(
     mut entity_in_hand: ResMut<EntityInHand>
 ) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
-    let object = commands.spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), 0)).id();
+    let object = commands.spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), 1)).id();
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])

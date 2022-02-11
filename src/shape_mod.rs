@@ -2,21 +2,25 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
-use phf::phf_map;
 
 use crate::bundle::*;
 use crate::component::*;
 use crate::LYON_SCALE;
 
+use std::collections::HashMap;
+
 pub static OBJECTS: &'static [fn(Vec2) -> ObjectBundle] = &[
-    square,         // 0
-    circle,         // 1
-    rect,           // 2
+    square,         // 1
+    circle,         // 2
+    rect,           // 3
 ];
 
-pub static TABLE: phf::Map<&'static str, usize> = phf_map! {
-    "1+1" => 2,
-};
+pub fn init_table() -> Vec<(Vec<u8>, u8)> {
+    vec![
+        (vec![1, 1], 3),
+        (vec![2], 3)
+    ]
+}
 
 fn square(pos: Vec2) -> ObjectBundle {
     let shape = shapes::Rectangle {
@@ -30,8 +34,8 @@ fn square(pos: Vec2) -> ObjectBundle {
         shape: GeometryBuilder::build_as(
             &shape,
             DrawMode::Outlined {
-                fill_mode: FillMode::color(Color::YELLOW),
-                outline_mode: StrokeMode::new(Color::GRAY, 5.0),
+                fill_mode: FillMode::color(Color::hsl(60.0, 1.0, 0.6)),
+                outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0),
             },
             Transform {
                 translation: Vec3::new(0.0, 0.0, 1.0),
@@ -64,8 +68,8 @@ fn circle(pos: Vec2) -> ObjectBundle {
         shape: GeometryBuilder::build_as(
             &shape,
             DrawMode::Outlined {
-                fill_mode: FillMode::color(Color::hsl(0.04, 1.0, 0.6)),
-                outline_mode: StrokeMode::new(Color::hsl(0.04, 1.0, 0.4), 5.0),
+                fill_mode: FillMode::color(Color::hsl(4.0, 1.0, 0.6)),
+                outline_mode: StrokeMode::new(Color::hsl(4.0, 1.0, 0.4), 5.0),
             },
             Transform {
                 translation: Vec3::new(0.0, 0.0, 1.0),
@@ -98,8 +102,8 @@ fn rect(pos: Vec2) -> ObjectBundle {
         shape: GeometryBuilder::build_as(
             &shape,
             DrawMode::Outlined {
-                fill_mode: FillMode::color(Color::YELLOW),
-                outline_mode: StrokeMode::new(Color::GRAY, 5.0),
+                fill_mode: FillMode::color(Color::hsl(60.0, 1.0, 0.6)),
+                outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0),
             },
             Transform {
                 translation: Vec3::new(0.0, 0.0, 1.0),

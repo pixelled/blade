@@ -13,6 +13,7 @@ pub struct PlayerBundle {
     player: Player,
     health: Health,
     storage: Storage,
+    blueprint: Blueprint,
 
     #[bundle]
     sprite: SpriteBundle,
@@ -28,7 +29,8 @@ impl PlayerBundle {
         PlayerBundle {
             player: Player {},
             health: Health { hp: 100 },
-            storage: Storage { shapes: vec![0; STORAGE_SIZE] },
+            storage: Storage { items: vec![0; STORAGE_SIZE] },
+            blueprint: Blueprint { items: vec![0; BLUEPRINT_SIZE] },
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 2.0),
@@ -72,7 +74,7 @@ pub struct ObjectBundle {
 
 impl ObjectBundle {
     pub fn new(pos: Vec2, id: usize) -> Self {
-        OBJECTS[id as usize](pos)
+        OBJECTS[id as usize - 1](pos)
     }
 }
 
