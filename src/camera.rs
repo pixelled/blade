@@ -31,4 +31,6 @@ pub fn move_camera(
     );
     camera_transform.translation.x += dir.x * 0.5;
     camera_transform.translation.y += dir.y * 0.5;
+    // camera_transform.translation.x = player_translation.x * RAPIER_SCALE;
+    // camera_transform.translation.y = player_translation.y * RAPIER_SCALE;
 }

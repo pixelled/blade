@@ -7,8 +7,12 @@ use crate::in_game::EntityInHand;
 use crate::component::*;
 use crate::bundle::*;
 use crate::shape_mod::*;
+use crate::ui::*;
+use crate::camera::MainCamera;
 
 use std::collections::HashMap;
+use bevy_prototype_lyon::prelude::GeometryBuilder;
+use bevy_prototype_lyon::entity::ShapeBundle;
 
 pub const STORAGE_SIZE: usize = 4;
 pub const BLUEPRINT_SIZE: usize = 4;
@@ -24,17 +28,20 @@ impl Plugin for SynthesisPlugin {
             .add_system_set(
                 SystemSet::on_enter(AppState::Setup)
                     .with_system(setup_table)
-                    .with_system(setup_table_display)
                     .with_system(setup_storage_display)
+                    .with_system(setup_blueprint_display)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(storage_input)
+                    .with_system(clear_entity)
                     .with_system(synthesize_entity)
                     .with_system(store_entity)
                     .with_system(hold_stored_entity)
-                    .with_system(storage_display)
-                    .with_system(blueprint_display)
+                    .with_system(set_storage_global_transform)
+                    .with_system(set_blueprint_global_transform)
+                    .with_system(update_storage_display)
+                    .with_system(update_blueprint_display)
             );
     }
 }
@@ -85,12 +92,13 @@ fn store_entity(
         QueryState<(Entity, &mut Storage), With<Player>>,
         QueryState<RigidBodyComponentsQueryPayload>
     )>,
+    query_id: Query<&Throwable>,
 ) {
     if keyboard_input.just_pressed(KeyCode::F) {
         if let Some(e_in_hand) = entity_in_hand.entity {
             let mut player_query = q.q0();
             let (player_entity, mut storage): (Entity, Mut<Storage>) = player_query.single_mut();
-            storage.insert(1);
+            storage.insert(query_id.get(e_in_hand).unwrap().0);
             let rigid_body_handle: RigidBodyHandle = player_entity.handle();
             let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
             joint_set.remove_joints_attached_to_rigid_body(
@@ -100,6 +108,38 @@ fn store_entity(
             );
             commands.entity(e_in_hand).despawn();
             entity_in_hand.entity = None;
+        }
+    }
+}
+
+fn hold_stored_entity(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut storage_in_hand: Res<StorageInHand>,
+    mut entity_in_hand: ResMut<EntityInHand>,
+    mut q: Query<(Entity, &mut Storage, &RigidBodyPositionComponent), With<Player>>,
+) {
+    if !keyboard_input.just_pressed(KeyCode::E) {
+        return;
+    }
+    let (player_e, mut storage, rb_pos) = q.single_mut();
+    if let Some(i) = storage_in_hand.cur {
+        let id = storage.items[i];
+        if id != 0 {
+            let object = commands.spawn_bundle(
+                OBJECTS[(id - 1) as usize]
+                    (Vec2::new(rb_pos.position.translation.x + 10.0, rb_pos.position.translation.y))
+            ).id();
+            let axis = Vector::x_axis();
+            let joint = PrismaticJoint::new(axis)
+                .local_anchor1(point![0.0, 0.0])
+                .local_anchor2(point![0.0, 0.0])
+                .limit_axis([7.0, 8.0]);
+            commands
+                .spawn()
+                .insert(JointBuilderComponent::new(joint, player_e, object));
+            entity_in_hand.entity = Some(object);
+            storage.items[i] = 0;
         }
     }
 }
@@ -124,191 +164,179 @@ fn synthesize_entity(
     }
 }
 
-fn hold_stored_entity(
-    mut commands: Commands,
-    mut keyboard_input: Res<Input<KeyCode>>,
-    mut storage_in_hand: Res<StorageInHand>,
-    mut entity_in_hand: ResMut<EntityInHand>,
-    mut q: Query<(Entity, &mut Storage, &RigidBodyPositionComponent), With<Player>>,
+fn clear_entity(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut bp_query: Query<&mut Blueprint>,
 ) {
-    if !keyboard_input.just_pressed(KeyCode::E) {
-        return;
-    }
-    let (player_e, mut storage, rb_pos) = q.single_mut();
-    if let Some(i) = storage_in_hand.cur {
-        if storage.items[i] != 0 {
-            let object = commands.spawn_bundle(ObjectBundle::new(
-                Vec2::new(rb_pos.position.translation.x + 10.0, rb_pos.position.translation.y), 1
-            )).id();
-            let axis = Vector::x_axis();
-            let joint = PrismaticJoint::new(axis)
-                .local_anchor1(point![0.0, 0.0])
-                .local_anchor2(point![0.0, 0.0])
-                .limit_axis([7.0, 8.0]);
-            commands
-                .spawn()
-                .insert(JointBuilderComponent::new(joint, player_e, object));
-            entity_in_hand.entity = Some(object);
-            storage.items[i] = 0;
-        }
+    if keyboard_input.just_pressed(KeyCode::C) {
+        let mut bp = bp_query.single_mut();
+        bp.clear();
     }
 }
 
 fn setup_storage_display(
     mut commands: Commands,
-    mut asset_server: ResMut<AssetServer>,
     mut storage_ui: ResMut<StorageUIs>,
 ) {
     let storage_ui = storage_ui.as_mut();
     commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(15.0)),
-                // padding: Rect::all(Val::Percent(25.0)),
-                position_type: PositionType::Absolute,
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            color: Color::rgba(0.8, 0.8, 0.8, 0.0).into(),
+        .spawn_bundle((Transform {
+            translation: Vec3::new(0.0, 0.0, 3.0),
             ..Default::default()
-        })
+        }, GlobalTransform::default()))
+        .insert(StorageBox)
         .with_children(|parent| {
-            for _ in 0..STORAGE_SIZE {
-                parent.spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(50.0), Val::Px(50.0)),
-                        margin: Rect::all(Val::Px(10.0)),
-                        border: Rect::all(Val::Px(5.0)),
-                        ..Default::default()
-                    },
-                    color: Color::rgba(0.6, 0.6, 0.6, 0.7).into(),
-                    ..Default::default()
-                }).with_children(|parent| {
-                    parent.spawn_bundle(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..Default::default()
-                        },
-                        color: Color::rgba(0.9, 0.9, 0.9, 0.7).into(),
-                        ..Default::default()
-                    }).with_children(|parent| {
-                        let e = parent.spawn_bundle(ImageBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(60.0), Val::Percent(60.0)),
-                                ..Default::default()
-                            },
-                            image: asset_server.load("yellow-sq.png").into(),
-                            visibility: Visibility { is_visible: false},
-                            ..Default::default()
-                        }).insert(StorageUI {}).id();
-                        storage_ui.uis.push(e);
-                    });
-                });
+            let extents = Vec2::new(40.0, 40.0);
+            let interval = 20.0;
+            let mut cur_x = (STORAGE_SIZE - 1) as f32 * (-interval - extents.x) / 2.0;
+            for i in 0..STORAGE_SIZE {
+                let e = parent
+                    .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
+                    .insert(StorageUI { child: 0 })
+                    .with_children(|parent| {
+
+                    })
+                    .id();
+                storage_ui.entities.push(e);
+                cur_x += extents.x + interval;
             }
         });
 }
 
-fn setup_table_display(
+fn update_storage_display(
     mut commands: Commands,
-    mut asset_server: ResMut<AssetServer>,
-    mut blueprint_uis: ResMut<BlueprintUIs>,
-) {
-    let blueprint_uis = blueprint_uis.as_mut();
-    commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(15.0)),
-                // padding: Rect::all(Val::Percent(25.0)),
-                position_type: PositionType::Absolute,
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            color: Color::rgba(0.8, 0.0, 1.0, 1.0).into(),
-            ..Default::default()
-        })
-        .with_children(|parent| {
-            for _ in 0..BLUEPRINT_SIZE {
-                parent.spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(50.0), Val::Px(50.0)),
-                        margin: Rect::all(Val::Px(10.0)),
-                        border: Rect::all(Val::Px(5.0)),
-                        ..Default::default()
-                    },
-                    color: Color::rgba(0.6, 0.6, 0.6, 0.7).into(),
-                    ..Default::default()
-                }).with_children(|parent| {
-                    parent.spawn_bundle(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..Default::default()
-                        },
-                        color: Color::rgba(0.9, 0.9, 0.9, 0.7).into(),
-                        ..Default::default()
-                    }).with_children(|parent| {
-                        let e = parent.spawn_bundle(ImageBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(60.0), Val::Percent(60.0)),
-                                ..Default::default()
-                            },
-                            image: asset_server.load("yellow-sq.png").into(),
-                            visibility: Visibility { is_visible: false},
-                            ..Default::default()
-                        }).insert(BlueprintUI {}).id();
-                        blueprint_uis.0.push(e);
-                    });
-                });
-            }
-        });
-}
-
-fn storage_display(
     storage_uis: Res<StorageUIs>,
     storage_in_hand: ResMut<StorageInHand>,
     storage: Query<&Storage>,
-    mut q: Query<(&mut UiImage, &mut Transform, &mut Visibility, &mut StorageUI)>
+    mut q: Query<(&mut Children, &mut StorageUI)>,
+    mut transform_query: Query<&mut Transform, With<StorageShape>>
 ) {
     let storage = storage.single();
+    // println!("{:?}", storage_in_hand);
     if storage_in_hand.cur != storage_in_hand.prev {
         if let Some(i) = storage_in_hand.prev {
-            let (_, mut transform, _, _) = q.get_mut(storage_uis.uis[i]).unwrap();
-            transform.rotation = Quat::from_rotation_z(0.0);
+            let (mut children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+            for child in children.iter() {
+                if let Ok(mut transform) = transform_query.get_mut(*child) {
+                    transform.rotation = Quat::from_rotation_y(0.0);
+                }
+            }
         }
     }
     if let Some(i) = storage_in_hand.cur {
-        let (_, mut transform, _, _) = q.get_mut(storage_uis.uis[i]).unwrap();
-        transform.rotation = transform.rotation.mul_quat(Quat::from_rotation_z(0.03));
+        let (mut children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+        for child in children.iter() {
+            if let Ok(mut transform) = transform_query.get_mut(*child) {
+                transform.rotation = transform.rotation.mul_quat(Quat::from_rotation_y(0.03));
+            }
+        }
     }
-    for (i, id) in storage.items.iter().enumerate() {
-        let (mut ui_image, mut transform, mut visibility, mut storage_ui) = q.get_mut(storage_uis.uis[i]).unwrap();
-        if *id == 0 {
-            visibility.is_visible = false;
-        } else {
-            visibility.is_visible = true;
+    for (i, &id) in storage.items.iter().enumerate() {
+        let parent = storage_uis.entities[i];
+        let (mut children, mut storage_ui): (_, Mut<StorageUI>) = q.get_mut(parent).unwrap();
+        if id != storage_ui.child {
+            if id == 0 {
+                commands.entity(parent).despawn_descendants();
+            } else {
+                let (f, scale) = SHAPES[(id - 1) as usize];
+                let child = commands
+                    .spawn_bundle(f(scale))
+                    .insert(StorageShape {})
+                    .id();
+                commands.entity(parent).push_children(&[child]);
+            }
+            storage_ui.child = id;
         }
     }
 }
 
-fn blueprint_display(
+fn set_storage_global_transform(
+    wnds: Res<Windows>,
+    mut q: QuerySet<(
+        QueryState<&Transform, With<MainCamera>>,
+        QueryState<&mut Transform, With<StorageBox>>
+    )>
+) {
+    let wnd = wnds.get_primary().unwrap();
+    let camera_pos = q.q0().single();
+    let x = camera_pos.translation.x;
+    let y = camera_pos.translation.y - wnd.height() as f32 / 2.3;
+
+    let mut q1 = q.q1();
+    let mut storage_pos = q1.single_mut();
+    storage_pos.translation.x = x;
+    storage_pos.translation.y = y;
+}
+
+fn setup_blueprint_display(
+    mut commands: Commands,
+    mut blueprint_uis: ResMut<BlueprintUIs>,
+) {
+    let blueprint_uis = blueprint_uis.as_mut();
+    let parent = commands.spawn_bundle(
+        (Transform {
+            translation: Vec3::new(0.0, 0.0, 3.0),
+            ..Default::default()
+        }, GlobalTransform::default())
+    ).insert(BlueprintBox)
+        .with_children(|parent| {
+            let extents = Vec2::new(40.0, 40.0);
+            let interval = 0.0;
+            let mut cur_x = (BLUEPRINT_SIZE - 1) as f32 * (-interval - extents.x) / 2.0;
+            for i in 0..BLUEPRINT_SIZE {
+                let e = parent
+                    .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
+                    .insert(BlueprintUI { child: 0 })
+                    .with_children(|parent| {
+                    })
+                    .id();
+                blueprint_uis.entities.push(e);
+                cur_x += extents.x + interval;
+            }
+        });
+}
+
+fn update_blueprint_display(
+    mut commands: Commands,
     blueprint_uis: Res<BlueprintUIs>,
     blueprint: Query<&Blueprint>,
-    mut q: Query<(&mut UiImage, &mut Transform, &mut Visibility, &mut BlueprintUI)>
+    mut q: Query<(&mut Children, &mut BlueprintUI)>,
+    mut transform_query: Query<&mut Transform, With<BlueprintShape>>
 ) {
     let bp = blueprint.single();
-    for (i, id) in bp.items.iter().enumerate() {
-        let (mut ui_image, mut transform, mut visibility, mut storage_ui) = q.get_mut(blueprint_uis.0[i]).unwrap();
-        if *id == 0 {
-            visibility.is_visible = false;
-        } else {
-            visibility.is_visible = true;
+    for (i, &id) in bp.items.iter().enumerate() {
+        let parent = blueprint_uis.entities[i];
+        let (mut children, mut blueprint_ui): (_, Mut<BlueprintUI>) = q.get_mut(parent).unwrap();
+        if id != blueprint_ui.child {
+            if id == 0 {
+                commands.entity(parent).despawn_descendants();
+            } else {
+                let (f, scale) = SHAPES[(id - 1) as usize];
+                let child = commands
+                    .spawn_bundle(f(scale))
+                    .insert(BlueprintShape {})
+                    .id();
+                commands.entity(parent).push_children(&[child]);
+            }
+            blueprint_ui.child = id;
         }
     }
+}
+
+fn set_blueprint_global_transform(
+    wnds: Res<Windows>,
+    mut q: QuerySet<(
+        QueryState<&Transform, With<MainCamera>>,
+        QueryState<&mut Transform, With<BlueprintBox>>
+    )>
+) {
+    let wnd = wnds.get_primary().unwrap();
+    let camera_pos = q.q0().single();
+    let x = camera_pos.translation.x - wnd.width() as f32 / 2.5;
+    let y = camera_pos.translation.y - wnd.height() as f32 / 2.3;
+
+    let mut q1 = q.q1();
+    let mut blueprint_pos = q1.single_mut();
+    blueprint_pos.translation.x = x;
+    blueprint_pos.translation.y = y;
 }

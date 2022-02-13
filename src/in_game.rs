@@ -23,13 +23,18 @@ impl Plugin for InGamePlugin {
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .label("general")
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
-                    .with_system(move_camera)
                     .with_system(collision_detection)
                     .with_system(update_game_state)
                     .with_system(test_particle_system)
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(move_camera)
+                    .before("general")
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)

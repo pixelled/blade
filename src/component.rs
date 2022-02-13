@@ -7,7 +7,7 @@ pub struct Player;
 pub struct Object;
 
 #[derive(Component)]
-pub struct Throwable;
+pub struct Throwable(pub u8);
 
 #[derive(Component)]
 pub struct Health {
@@ -47,6 +47,10 @@ impl Blueprint {
             }
         }
     }
+
+    pub fn clear(&mut self) {
+        self.items.iter_mut().for_each(|v| { *v = 0 });
+    }
 }
 
 #[derive(Debug)]
@@ -55,22 +59,6 @@ pub struct StorageInHand {
     pub prev: Option<usize>,
     pub cur: Option<usize>
 }
-
-#[derive(Default)]
-pub struct StorageUIs {
-    pub uis: std::vec::Vec<Entity>,
-}
-
-#[derive(Default)]
-pub struct BlueprintUIs(pub std::vec::Vec<Entity>);
-
-#[derive(Component)]
-pub struct StorageUI {
-    // pub rot: f32,
-}
-
-#[derive(Component)]
-pub struct BlueprintUI;
 
 #[derive(Component)]
 pub struct EndGameUI;

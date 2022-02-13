@@ -6,6 +6,7 @@ mod camera;
 mod particle;
 mod synthesis;
 mod shape_mod;
+mod ui;
 
 use bundle::*;
 use in_game::*;
