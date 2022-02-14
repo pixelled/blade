@@ -14,6 +14,7 @@ use end_game::*;
 use camera::*;
 use particle::*;
 use synthesis::*;
+use shape_mod::*;
 
 use bevy::prelude::*;
 use bevy::core::FixedTimestep;
@@ -67,8 +68,8 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
         texture: asset_server.load("bg.png"),
         ..Default::default()
     });
-    commands.spawn_bundle(ObjectBundle::new(Vec2::new(5.0, 5.0), 1));
-    commands.spawn_bundle(ObjectBundle::new(Vec2::new(-5.0, 5.0), 2));
+    commands.spawn_bundle(ObjectBundle::new(Vec2::new(5.0, 5.0), Type::Square));
+    commands.spawn_bundle(ObjectBundle::new(Vec2::new(-5.0, 5.0), Type::Circle));
     commands.spawn_bundle(BarBundle::new(0.0,0.0, &asset_server));
     spawn_boundary(&mut commands);
 

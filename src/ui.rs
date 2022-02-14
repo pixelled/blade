@@ -3,6 +3,7 @@ use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 use crate::LYON_SCALE;
+use crate::shape_mod::Type;
 
 #[derive(Component)]
 pub struct StorageBox;
@@ -18,17 +19,17 @@ pub struct StorageUIs {
 #[derive(Default)]
 pub struct BlueprintUIs {
     pub entities: std::vec::Vec<Entity>,
-    pub res: Option<Entity>
+    pub res: std::vec::Vec<Entity>,
 }
 
 #[derive(Component)]
 pub struct StorageUI {
-    pub child: u8
+    pub child: Type
 }
 
 #[derive(Component)]
 pub struct BlueprintUI {
-    pub child: u8
+    pub child: Type
 }
 
 #[derive(Component)]

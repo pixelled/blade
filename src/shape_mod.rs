@@ -8,23 +8,69 @@ use crate::component::*;
 use crate::LYON_SCALE;
 
 use std::collections::HashMap;
+use crate::synthesis::BLUEPRINT_SIZE;
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd)]
+pub enum Type {
+    Empty,
+    Square,
+    Circle,
+    Rect
+}
+
+use std::cmp::Ordering;
+impl Ord for Type {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self < other {
+            Ordering::Less
+        } else if self > other {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        }
+    }
+}
 
 pub static SHAPES: &'static [(fn(f32) -> ShapeBundle, f32)] = &[
-    (square_shape, 0.5),         // 1
-    (circle_shape, 0.5)          // 2
+    (empty_shape, 0.0),
+    (square_shape, 0.5),        // 1
+    (circle_shape, 0.5),        // 2
+    (rect_shape, 0.5)           // 3
 ];
 
 pub static OBJECTS: &'static [fn(Vec2) -> ObjectBundle] = &[
+    empty,
     square,         // 1
     circle,         // 2
     rect,           // 3
 ];
 
-pub fn init_table() -> Vec<(Vec<u8>, u8)> {
-    vec![
-        (vec![1, 1], 3),
-        (vec![2], 3)
-    ]
+pub fn init_table() -> Vec<(Vec<(Type, usize)>, Type)> {
+    use Type::*;
+    let table = vec![
+        (vec![(Square, 2)], Rect),
+        (vec![(Circle, 1)], Rect)
+    ];
+    table
+}
+
+pub fn empty_shape(scale: f32) -> ShapeBundle {
+    ShapeBundle::default()
+}
+
+pub fn empty(pos: Vec2) -> ObjectBundle {
+    ObjectBundle {
+        object: Object {},
+        throwable: Throwable(Type::Empty),
+        shape: empty_shape(1.0),
+        rigid_body: RigidBodyBundle {
+            ..Default::default()
+        },
+        collider: ColliderBundle {
+            ..Default::default()
+        },
+        sync: RigidBodyPositionSync::Discrete,
+    }
 }
 
 pub fn square_shape(scale: f32) -> ShapeBundle {
@@ -48,7 +94,7 @@ pub fn square_shape(scale: f32) -> ShapeBundle {
 fn square(pos: Vec2) -> ObjectBundle {
     ObjectBundle {
         object: Object {},
-        throwable: Throwable(1),
+        throwable: Throwable(Type::Square),
         shape: square_shape(1.0),
         rigid_body: RigidBodyBundle {
             position: (pos.clone(), 0.0).into(),
@@ -85,7 +131,7 @@ pub fn circle_shape(scale: f32) -> ShapeBundle {
 fn circle(pos: Vec2) -> ObjectBundle {
     ObjectBundle {
         object: Object {},
-        throwable: Throwable(2),
+        throwable: Throwable(Type::Circle),
         shape: circle_shape(1.0),
         rigid_body: RigidBodyBundle {
             position: (pos.clone(), 0.0).into(),
@@ -101,26 +147,29 @@ fn circle(pos: Vec2) -> ObjectBundle {
     }
 }
 
-fn rect(pos: Vec2) -> ObjectBundle {
+pub fn rect_shape(scale: f32) -> ShapeBundle {
     let shape = shapes::Rectangle {
-        extents: Vec2::new(4.0, 2.0) * 2.0 * LYON_SCALE,
+        extents: Vec2::new(4.0, 2.0) * 2.0 * LYON_SCALE * scale,
         origin: RectangleOrigin::Center
     };
+    GeometryBuilder::build_as(
+        &shape,
+        DrawMode::Outlined {
+            fill_mode: FillMode::color(Color::hsl(60.0, 1.0, 0.6)),
+            outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0 * scale),
+        },
+        Transform {
+            translation: Vec3::new(0.0, 0.0, 1.0),
+            ..Default::default()
+        },
+    )
+}
 
+fn rect(pos: Vec2) -> ObjectBundle {
     ObjectBundle {
         object: Object {},
-        throwable: Throwable(3),
-        shape: GeometryBuilder::build_as(
-            &shape,
-            DrawMode::Outlined {
-                fill_mode: FillMode::color(Color::hsl(60.0, 1.0, 0.6)),
-                outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0),
-            },
-            Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
-                ..Default::default()
-            },
-        ),
+        throwable: Throwable(Type::Rect),
+        shape: rect_shape(1.0),
         rigid_body: RigidBodyBundle {
             position: (pos.clone(), 0.0).into(),
             ..Default::default()

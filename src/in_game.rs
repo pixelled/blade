@@ -9,6 +9,7 @@ use crate::component::*;
 use crate::bundle::*;
 use crate::camera::*;
 use crate::particle::*;
+use crate::shape_mod::*;
 use std::f32::consts::PI;
 
 pub struct InGamePlugin;
@@ -83,7 +84,9 @@ fn spawn_player(
     mut entity_in_hand: ResMut<EntityInHand>
 ) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
-    let object = commands.spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), 1)).id();
+    let object = commands
+        .spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), Type::Square))
+        .id();
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
         .local_anchor1(point![0.0, 0.0])
