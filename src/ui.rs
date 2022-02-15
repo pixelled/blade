@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
-use crate::LYON_SCALE;
+use crate::RAPIER_TO_LYON;
 use crate::shape_mod::Type;
 
 #[derive(Component)]

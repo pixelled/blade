@@ -5,14 +5,11 @@ use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
 use super::AppState;
 use crate::in_game::EntityInHand;
 use crate::component::*;
-use crate::bundle::*;
 use crate::shape_mod::*;
 use crate::ui::*;
 use crate::camera::MainCamera;
 
 use std::collections::HashMap;
-use bevy_prototype_lyon::prelude::GeometryBuilder;
-use bevy_prototype_lyon::entity::ShapeBundle;
 
 pub const STORAGE_SIZE: usize = 4;
 pub const BLUEPRINT_SIZE: usize = 4;
@@ -55,20 +52,20 @@ fn setup_table(mut commands: Commands) {
 }
 
 fn storage_input(
-    keybord_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<Input<KeyCode>>,
     mut storage_in_hand: ResMut<StorageInHand>,
     mut q: Query<(&Storage, &mut Blueprint)>,
 ) {
     let keys = vec![KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4];
-    if keybord_input.any_just_pressed(keys) {
+    if keyboard_input.any_just_pressed(keys) {
         storage_in_hand.prev = storage_in_hand.cur;
-        if keybord_input.just_pressed(KeyCode::Key1) {
+        if keyboard_input.just_pressed(KeyCode::Key1) {
             storage_in_hand.cur = Some(0);
-        } else if keybord_input.just_pressed(KeyCode::Key2) {
+        } else if keyboard_input.just_pressed(KeyCode::Key2) {
             storage_in_hand.cur = Some(1);
-        } else if keybord_input.just_pressed(KeyCode::Key3) {
+        } else if keyboard_input.just_pressed(KeyCode::Key3) {
             storage_in_hand.cur = Some(2);
-        } else if keybord_input.just_pressed(KeyCode::Key4) {
+        } else if keyboard_input.just_pressed(KeyCode::Key4) {
             storage_in_hand.cur = Some(3);
         }
         // add to blueprint if double clicked
@@ -114,7 +111,7 @@ fn store_entity(
 fn hold_stored_entity(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    mut storage_in_hand: Res<StorageInHand>,
+    storage_in_hand: Res<StorageInHand>,
     mut entity_in_hand: ResMut<EntityInHand>,
     mut q: Query<(Entity, &mut Storage, &RigidBodyPositionComponent), With<Player>>,
 ) {
@@ -166,12 +163,12 @@ fn check_ingredients(sto: &Storage, bp: &Blueprint) -> (bool, Vec<usize>) {
 }
 
 fn synthesize_entity(
-    keybord_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<Input<KeyCode>>,
     table: Res<Table>,
     mut q: Query<(&mut Storage, &Blueprint)>,
 ) {
-    if keybord_input.just_pressed(KeyCode::Q) {
-        let (mut storage, mut bp): (Mut<Storage>, &Blueprint) = q.single_mut();
+    if keyboard_input.just_pressed(KeyCode::Q) {
+        let (mut storage, bp): (Mut<Storage>, &Blueprint) = q.single_mut();
         let bp_vec: std::vec::Vec<(Type, usize)> = bp.clone().into();
         match table.0.get(&bp_vec) {
             Some(&id) => {
@@ -215,7 +212,7 @@ fn setup_storage_display(
                 let e = parent
                     .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
                     .insert(StorageUI { child: Type::Empty })
-                    .with_children(|parent| {
+                    .with_children(|_| {
                     })
                     .id();
                 storage_ui.entities.push(e);
@@ -236,7 +233,7 @@ fn update_storage_display(
     // println!("{:?}", storage_in_hand);
     if storage_in_hand.cur != storage_in_hand.prev {
         if let Some(i) = storage_in_hand.prev {
-            let (mut children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+            let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
             for child in children.iter() {
                 if let Ok(mut transform) = transform_query.get_mut(*child) {
                     transform.rotation = Quat::from_rotation_y(0.0);
@@ -245,7 +242,7 @@ fn update_storage_display(
         }
     }
     if let Some(i) = storage_in_hand.cur {
-        let (mut children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+        let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
         for child in children.iter() {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotation = transform.rotation.mul_quat(Quat::from_rotation_y(0.03));
@@ -259,9 +256,9 @@ fn update_storage_display(
             if id == Type::Empty {
                 commands.entity(parent).despawn_descendants();
             } else {
-                let (f, scale) = SHAPES[(id) as usize];
+                let f = SHAPES[(id) as usize];
                 let child = commands
-                    .spawn_bundle(f(scale))
+                    .spawn_bundle(f(Usage::Storage))
                     .insert(StorageShape {})
                     .id();
                 commands.entity(parent).push_children(&[child]);
@@ -294,7 +291,7 @@ fn setup_blueprint_display(
     mut blueprint_uis: ResMut<BlueprintUIs>,
 ) {
     let blueprint_uis = blueprint_uis.as_mut();
-    let parent = commands.spawn_bundle(
+    commands.spawn_bundle(
         (Transform {
             translation: Vec3::new(0.0, 0.0, 3.0),
             ..Default::default()
@@ -304,11 +301,11 @@ fn setup_blueprint_display(
             let extents = Vec2::new(40.0, 40.0);
             let interval = 0.0;
             let mut cur_x = (BLUEPRINT_SIZE - 1) as f32 * (-interval - extents.x) / 2.0;
-            for i in 0..BLUEPRINT_SIZE {
+            for _ in 0..BLUEPRINT_SIZE {
                 let e = parent
                     .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
                     .insert(BlueprintUI { child: Type::Empty })
-                    .with_children(|parent| {
+                    .with_children(|_| {
                     })
                     .id();
                 blueprint_uis.entities.push(e);
@@ -319,7 +316,7 @@ fn setup_blueprint_display(
             let e = parent
                 .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
                 .insert(BlueprintUI { child: Type::Empty })
-                .with_children(|parent| {})
+                .with_children(|_| {})
                 .id();
             blueprint_uis.res.push(e);
         });
@@ -330,9 +327,9 @@ fn update_blueprint_box(commands: &mut Commands, parent: Entity, parent_ui: &mut
         if id == Type::Empty {
             commands.entity(parent).despawn_descendants();
         } else {
-            let (f, scale) = SHAPES[id as usize];
+            let f = SHAPES[id as usize];
             let child = commands
-                .spawn_bundle(f(scale))
+                .spawn_bundle(f(Usage::Storage))
                 .insert(BlueprintShape {})
                 .id();
             commands.entity(parent).push_children(&[child]);

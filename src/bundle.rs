@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 
-use super::LYON_SCALE;
+use super::RAPIER_TO_LYON;
 use crate::component::*;
 use crate::synthesis::*;
 use crate::shape_mod::*;
@@ -90,13 +90,9 @@ pub struct StaticBundle {
 }
 
 impl StaticBundle {
-    // pub fn new(shape: &impl Geometry) -> Self {
-    //
-    // }
-
     pub fn new_rect(half_extents: Vec2, origin: Vec2) -> Self {
         let shape = shapes::Rectangle {
-            extents: half_extents.clone() * 2.0 * LYON_SCALE,
+            extents: half_extents.clone() * 2.0 * RAPIER_TO_LYON,
             origin: RectangleOrigin::Center
         };
         StaticBundle {
@@ -104,7 +100,7 @@ impl StaticBundle {
                 &shape,
                 DrawMode::Outlined {
                     fill_mode: FillMode::color(Color::ALICE_BLUE),
-                    outline_mode: StrokeMode::new(Color::GRAY, 5.0),
+                    outline_mode: StrokeMode::new(Color::rgba(0.0, 0.0, 0.0, 0.0), 5.0),
                 },
                 Transform {
                     translation: Vec3::new(origin.x, origin.y, 1.0),

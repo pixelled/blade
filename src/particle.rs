@@ -3,7 +3,7 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use rand::{thread_rng, Rng};
 
-use super::{TIME_STEP, LYON_SCALE};
+use super::{TIME_STEP, RAPIER_TO_LYON};
 use bevy::render::render_phase::Draw;
 
 // Reference: https://github.com/cvhariharan/smoke-rs
@@ -98,7 +98,7 @@ fn apply_forces() {
 fn spawn_particle_group(commands: &mut Commands, origin: Vec3, num: i32) {
     let mut rng = thread_rng();
     let shape = shapes::Rectangle {
-        extents: Vec2::new(1.0, 1.0) * 2.0 * LYON_SCALE,
+        extents: Vec2::new(1.0, 1.0) * 2.0 * RAPIER_TO_LYON,
         origin: RectangleOrigin::Center
     };
     for _ in 0..num {

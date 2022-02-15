@@ -25,7 +25,7 @@ impl Plugin for EndGamePlugin {
 
 fn load_end_game_display(
     mut commands: Commands,
-    mut asset_server: ResMut<AssetServer>
+    asset_server: ResMut<AssetServer>
 ) {
     commands
         .spawn_bundle(NodeBundle {
@@ -43,10 +43,6 @@ fn load_end_game_display(
         .insert(EndGameUI {})
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
-                // style: Style {
-                //     padding: Rect::all(Val::Percent(20.0)),
-                //     ..Default::default()
-                // },
                 text: Text::with_section(
                     "(press enter to continue)",
                     TextStyle {
@@ -72,7 +68,7 @@ fn end_game_input_system(
 
 fn despawn_end_game_ui(
     mut commands: Commands,
-    mut queries: Query<Entity, With<EndGameUI>>
+    queries: Query<Entity, With<EndGameUI>>
 ) {
     for entity in queries.iter() {
         commands.entity(entity).despawn_recursive();

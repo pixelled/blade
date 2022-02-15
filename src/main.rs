@@ -17,13 +17,19 @@ use synthesis::*;
 use shape_mod::*;
 
 use bevy::prelude::*;
-use bevy::core::FixedTimestep;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
-const RAPIER_SCALE: f32 = 10.0;
-const LYON_SCALE: f32 = 10.0;
+
+// size(pixels) = RAPIER_SCALE * size(meters)
+const RAPIER_TO_BEVY: f32 = 10.0;
+const RAPIER_TO_LYON: f32 = 10.0;
+
+const BOUNDARY_HORIZONTAL: f32 = 192.0;
+const BOUNDARY_VERTICAL: f32 = 108.0;
+const OFFSET_HORIZONTAL: f32 = 50.0;
+const OFFSET_VERTICAL: f32 = 50.0;
 
 fn main() {
     App::new()
@@ -55,7 +61,7 @@ enum AppState {
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config: ResMut<RapierConfiguration>) {
     config.gravity = Vec2::new(0.0, 0.0).into();
-    config.scale = RAPIER_SCALE;
+    config.scale = RAPIER_TO_BEVY;
 
     commands.spawn_bundle(OrthographicCameraBundle::new_2d())
             .insert(MainCamera::default());
@@ -68,8 +74,8 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
         texture: asset_server.load("bg.png"),
         ..Default::default()
     });
-    commands.spawn_bundle(ObjectBundle::new(Vec2::new(5.0, 5.0), Type::Square));
-    commands.spawn_bundle(ObjectBundle::new(Vec2::new(-5.0, 5.0), Type::Circle));
+    commands.spawn_bundle(ObjectBundle::new(Vec2::new(5.0, 5.0), Type::Triangle));
+    commands.spawn_bundle(ObjectBundle::new(Vec2::new(-5.0, 5.0), Type::Heart));
     commands.spawn_bundle(BarBundle::new(0.0,0.0, &asset_server));
     spawn_boundary(&mut commands);
 
@@ -118,20 +124,22 @@ fn start_game(mut app_state: ResMut<State<AppState>>) {
 }
 
 fn spawn_boundary(commands: &mut Commands) {
+    let half_m = BOUNDARY_VERTICAL / 2.0 + OFFSET_VERTICAL;
+    let half_n = BOUNDARY_HORIZONTAL / 2.0 + OFFSET_HORIZONTAL;
     commands.spawn_bundle(StaticBundle::new_rect(
-        Vec2::new(112.0, 1.0),
-        Vec2::new(0.0, -63.0)
+        Vec2::new(half_n, OFFSET_VERTICAL),
+        Vec2::new(0.0, half_m)
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
-        Vec2::new(112.0, 1.0),
-        Vec2::new(0.0, 63.0)
+        Vec2::new(half_n, OFFSET_VERTICAL),
+        Vec2::new(0.0, -half_m)
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
-        Vec2::new(1.0, 63.0),
-        Vec2::new(112.0, 0.0)
+        Vec2::new(OFFSET_HORIZONTAL, half_m),
+        Vec2::new(half_n, 0.0)
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
-        Vec2::new(1.0, 63.0),
-        Vec2::new(-112.0, 0.0)
+        Vec2::new(OFFSET_HORIZONTAL, half_m),
+        Vec2::new(-half_n, 0.0)
     ));
 }

@@ -25,6 +25,7 @@ impl Plugin for InGamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("general")
+                    .with_system(spawn_objects)
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
@@ -77,6 +78,13 @@ pub struct EntityInRange {
 #[derive(Default)]
 pub struct EntityInHand {
     pub entity: Option<Entity>
+}
+
+fn spawn_objects(
+    mut commands: Commands,
+    q: Query<&Object>,
+) {
+    println!("{}", q.iter().len());
 }
 
 fn spawn_player(
@@ -386,7 +394,7 @@ fn update_health_display (
 }
 
 fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDisplayComponent)>) {
-    let (mut transform, mut health_bar) = health_bar_component.single_mut();
+    let (transform, mut health_bar) = health_bar_component.single_mut();
     health_bar.animate(transform);
 }
 
