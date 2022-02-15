@@ -11,6 +11,7 @@ use crate::camera::*;
 use crate::particle::*;
 use crate::shape_mod::*;
 use std::f32::consts::PI;
+use rand::{thread_rng, Rng};
 
 pub struct InGamePlugin;
 
@@ -80,11 +81,22 @@ pub struct EntityInHand {
     pub entity: Option<Entity>
 }
 
+#[derive(Default)]
+pub struct SpawnTimer(pub Timer);
+
 fn spawn_objects(
     mut commands: Commands,
+    time: Res<Time>,
+    mut timer: ResMut<SpawnTimer>,
     q: Query<&Object>,
 ) {
-    println!("{}", q.iter().len());
+    if timer.0.tick(time.delta()).just_finished() {
+        if q.iter().len() < 10 {
+            let mut rng = thread_rng();
+            let id = rng.gen_range::<usize, _>(0..BASIC.len());
+            commands.spawn_bundle(OBJECTS[id](Vec2::new(-50.0, 50.0)));
+        }
+    }
 }
 
 fn spawn_player(

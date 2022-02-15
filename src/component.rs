@@ -26,13 +26,14 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn insert(&mut self, id: Type) {
+    pub fn insert(&mut self, id: Type) -> bool {
         for i in self.items.iter_mut() {
             if *i == Type::Empty {
                 *i = id;
-                break;
+                return true;
             }
         }
+        false
     }
 
     pub fn remove(&mut self, indices: &[usize]) {

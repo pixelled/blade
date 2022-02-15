@@ -117,6 +117,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
 
     commands.insert_resource(EntityInRange { cur: None, prev: None });
     commands.insert_resource(EntityInHand { entity: None });
+    commands.insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
 }
 
 fn start_game(mut app_state: ResMut<State<AppState>>) {

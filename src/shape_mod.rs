@@ -6,6 +6,7 @@ use bevy_prototype_lyon::prelude::*;
 use crate::bundle::*;
 use crate::component::*;
 use crate::RAPIER_TO_LYON;
+use Type::*;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd)]
 pub enum Type {
@@ -35,6 +36,10 @@ impl Ord for Type {
     }
 }
 
+pub static BASIC: &'static [Type] = &[
+    Square, Circle, Triangle
+];
+
 pub static SHAPES: &'static [fn(Usage) -> ShapeBundle] = &[
     empty_shape,
     square_shape,
@@ -54,7 +59,6 @@ pub static OBJECTS: &'static [fn(Vec2) -> ObjectBundle] = &[
 ];
 
 pub fn init_table() -> Vec<(Vec<(Type, usize)>, Type)> {
-    use Type::*;
     let table = vec![
         (vec![(Square, 2)], Rect),
         (vec![(Circle, 3)], Heart),
@@ -98,7 +102,7 @@ pub fn square_shape(usage: Usage) -> ShapeBundle {
             outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0 * scale),
         },
         Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
+            translation: Vec3::new(0.0, 0.0, 10.0),
             ..Default::default()
         },
     )
@@ -139,7 +143,7 @@ pub fn circle_shape(usage: Usage) -> ShapeBundle {
             outline_mode: StrokeMode::new(Color::hsl(4.0, 1.0, 0.4), 5.0 * scale),
         },
         Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
+            translation: Vec3::new(0.0, 0.0, 10.0),
             ..Default::default()
         },
     )
@@ -180,7 +184,7 @@ pub fn rect_shape(usage: Usage) -> ShapeBundle {
             outline_mode: StrokeMode::new(Color::hsl(60.0, 1.0, 0.4), 5.0 * scale),
         },
         Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
+            translation: Vec3::new(0.0, 0.0, 10.0),
             ..Default::default()
         },
     )
@@ -224,7 +228,7 @@ fn triangle_shape(usage: Usage) -> ShapeBundle {
             outline_mode: StrokeMode::new(Color::hsl(200.0, 1.0, 0.4), 5.0 * scale),
         },
         Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
+            translation: Vec3::new(0.0, 0.0, 10.0),
             ..Default::default()
         },
     )
@@ -260,7 +264,7 @@ fn heart_shape(usage: Usage) -> ShapeBundle {
     };
     let svg_path_string = match usage {
         Usage::World => "M 6.476 31.244 C 37.726 37.494 37.726 -0.006 12.726 -0.006 C 37.726 -0.006 37.726 -37.506 6.476 -31.256 C -12.274 -25.006 -18.524 -6.256 -37.274 -0.006 C -18.524 6.244 -12.274 24.994 6.476 31.244".to_owned(),
-        Usage::Storage => "M 1.9428 9.3732 C 11.3178 11.2482 11.3178 -0.0018 3.8178 -0.0018 C 11.3178 -0.0018 11.3178 -11.2518 1.9428 -9.3768 C -3.6822 -7.5018 -5.5572 -1.8768 -11.1822 -0.0018 C -5.5572 1.8732 -3.6822 7.4982 1.9428 9.3732".to_owned(),
+        Usage::Storage => "M 12.5 -2.5 C 15 -15 0 -15 0 -5 C 0 -15 -15 -15 -12.5 -2.5 C -10 5 -2.5 7.5 0 15 C 2.5 7.5 10 5 12.5 -2.5".to_owned(),
     };
     let shape = shapes::SvgPathShape {
         svg_path_string,
@@ -273,7 +277,7 @@ fn heart_shape(usage: Usage) -> ShapeBundle {
             outline_mode: StrokeMode::new(Color::hsl(344.0, 1.0, 0.4), 5.0 * scale),
         },
         Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
+            translation: Vec3::new(0.0, 0.0, 10.0),
             ..Default::default()
         },
     )

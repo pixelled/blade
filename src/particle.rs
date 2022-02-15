@@ -14,7 +14,6 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<DespawnEvent>()
-            .insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
             .add_system_set(
                 SystemSet::new()
                     .with_system(spawn_particles)
@@ -24,9 +23,6 @@ impl Plugin for ParticlePlugin {
             );
     }
 }
-
-#[derive(Default)]
-struct SpawnTimer(Timer);
 
 #[derive(Component)]
 struct Particle;
@@ -48,16 +44,6 @@ fn spawn_particles(
 ) {
     for ev in ev_despawn.iter() {
         spawn_particle_group(&mut commands, ev.0, 5);
-    }
-}
-
-fn spawn_particles_timer(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut timer: ResMut<SpawnTimer>,
-) {
-    if timer.0.tick(time.delta()).just_finished() {
-        spawn_particle_group(&mut commands, Vec3::new(0.0, 0.0, 0.0), 20);
     }
 }
 

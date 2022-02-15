@@ -94,7 +94,9 @@ fn store_entity(
         if let Some(e_in_hand) = entity_in_hand.entity {
             let mut player_query = q.q0();
             let (player_entity, mut storage): (Entity, Mut<Storage>) = player_query.single_mut();
-            storage.insert(query_id.get(e_in_hand).unwrap().0);
+            if !storage.insert(query_id.get(e_in_hand).unwrap().0) {
+                return
+            }
             let rigid_body_handle: RigidBodyHandle = player_entity.handle();
             let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
             joint_set.remove_joints_attached_to_rigid_body(
@@ -253,9 +255,8 @@ fn update_storage_display(
         let parent = storage_uis.entities[i];
         let (_, mut storage_ui): (_, Mut<StorageUI>) = q.get_mut(parent).unwrap();
         if id != storage_ui.child {
-            if id == Type::Empty {
-                commands.entity(parent).despawn_descendants();
-            } else {
+            commands.entity(parent).despawn_descendants();
+            if id != Type::Empty {
                 let f = SHAPES[(id) as usize];
                 let child = commands
                     .spawn_bundle(f(Usage::Storage))
