@@ -11,7 +11,7 @@ use crate::camera::MainCamera;
 
 use std::collections::HashMap;
 
-pub const STORAGE_SIZE: usize = 4;
+pub const STORAGE_SIZE: usize = 8;
 pub const BLUEPRINT_SIZE: usize = 4;
 
 pub struct SynthesisPlugin;
@@ -27,9 +27,11 @@ impl Plugin for SynthesisPlugin {
                     .with_system(setup_table)
                     .with_system(setup_storage_display)
                     .with_system(setup_blueprint_display)
+                    .with_system(init_ui)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(update_ui)
                     .with_system(storage_input)
                     .with_system(clear_entity)
                     .with_system(synthesize_entity)
@@ -56,7 +58,10 @@ fn storage_input(
     mut storage_in_hand: ResMut<StorageInHand>,
     mut q: Query<(&Storage, &mut Blueprint)>,
 ) {
-    let keys = vec![KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4];
+    let keys = vec![
+        KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4,
+        KeyCode::Key5, KeyCode::Key6, KeyCode::Key7, KeyCode::Key8,
+    ];
     if keyboard_input.any_just_pressed(keys) {
         storage_in_hand.prev = storage_in_hand.cur;
         if keyboard_input.just_pressed(KeyCode::Key1) {
@@ -67,6 +72,14 @@ fn storage_input(
             storage_in_hand.cur = Some(2);
         } else if keyboard_input.just_pressed(KeyCode::Key4) {
             storage_in_hand.cur = Some(3);
+        } else if keyboard_input.just_pressed(KeyCode::Key5) {
+            storage_in_hand.cur = Some(4);
+        } else if keyboard_input.just_pressed(KeyCode::Key6) {
+            storage_in_hand.cur = Some(5);
+        } else if keyboard_input.just_pressed(KeyCode::Key7) {
+            storage_in_hand.cur = Some(6);
+        } else if keyboard_input.just_pressed(KeyCode::Key8) {
+            storage_in_hand.cur = Some(7);
         }
         // add to blueprint if double clicked
         if storage_in_hand.prev == storage_in_hand.cur {

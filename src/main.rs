@@ -111,7 +111,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
                 },
                 color: Color::rgb_u8(184, 248, 174).into(),
                 ..Default::default()
-            }).insert(HealthBarDisplay);
+            }).insert(HealthBarDisplay).insert_bundle(square_shape(Usage::World));
         });
     });
 

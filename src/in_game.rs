@@ -234,17 +234,17 @@ fn detect_objects_forward(
 
 fn update_shape_of_detected_objects(
     mut entity_in_range: ResMut<EntityInRange>,
-    mut query: Query<&mut DrawMode>
+    mut query: Query<(&mut DrawMode, &Throwable)>
 ) {
     if entity_in_range.prev != entity_in_range.cur {
         if let Some(entity) = entity_in_range.prev {
             match query.get_mut(entity) {
-                Ok(mode) => {
+                Ok((mode, id)) => {
                     match mode.into_inner() {
                         DrawMode::Outlined { fill_mode: _, outline_mode } => {
                             let c = outline_mode.color.as_hlsa_f32();
                             *outline_mode = StrokeMode::new(
-                                Color::hsl(c[0], c[1], 0.4).into(), 5.0
+                                Color::hsl(c[0], c[1], 0.4).into(), 5.0 * SCALE[id.0 as usize]
                             );
                         },
                         _ => {}
@@ -255,12 +255,12 @@ fn update_shape_of_detected_objects(
         }
         if let Some(entity) = entity_in_range.cur {
             match query.get_mut(entity) {
-                Ok(mode) => {
+                Ok((mode, id)) => {
                     match mode.into_inner() {
                         DrawMode::Outlined { fill_mode: _, outline_mode } => {
                             let c = outline_mode.color.as_hlsa_f32();
                             *outline_mode = StrokeMode::new(
-                                Color::hsl(c[0], c[1], 0.1).into(), 5.0
+                                Color::hsl(c[0], c[1], 0.1).into(), 5.0 * SCALE[id.0 as usize]
                             );
                         },
                         _ => {}
