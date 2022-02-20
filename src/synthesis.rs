@@ -27,7 +27,7 @@ impl Plugin for SynthesisPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .with_system(update_ui)
+                    .with_system(set_recipe_global_transform)
                     .with_system(storage_input)
                     .with_system(clear_entity)
                     .with_system(synthesize_entity)
@@ -39,11 +39,14 @@ impl Plugin for SynthesisPlugin {
 }
 
 pub struct Table(pub HashMap<Vec<(Type, usize)>, Type>);
+pub struct TableInverse(pub HashMap<usize, Vec<(Type, usize)>>);
 
 fn setup_table(mut commands: Commands) {
     let t = init_table();
-    let m = t.into_iter().collect();
+    let m = t.clone().into_iter().collect();
+    let m_inverse = t.into_iter().map(|(k, v)| (v as usize, k)).collect();
     commands.insert_resource(Table(m));
+    commands.insert_resource(TableInverse(m_inverse))
 }
 
 fn storage_input(

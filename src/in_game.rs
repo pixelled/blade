@@ -37,6 +37,7 @@ impl Plugin for InGamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(move_camera)
+                    .label("camera")
                     .before("general")
             )
             .add_system_set(

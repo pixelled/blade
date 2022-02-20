@@ -27,13 +27,19 @@ impl Plugin for UIPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .with_system(update_ui)
-                    .with_system(set_storage_global_transform)
-                    .with_system(set_blueprint_global_transform)
                     .with_system(update_storage_display)
                     .with_system(update_blueprint_display)
                     .with_system(button_system)
                     .with_system(button_timer_system)
+                    .with_system(recipe_hover_system)
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(set_recipe_global_transform)
+                    .with_system(set_recipe_hovered_global_transform)
+                    .with_system(set_storage_global_transform)
+                    .with_system(set_blueprint_global_transform)
+                    .after("camera")
             );
     }
 }
@@ -81,7 +87,10 @@ pub struct RecipeDisplayButton {
 pub struct RecipeTableUi(pub Option<Entity>);
 
 #[derive(Component)]
-pub struct RecipeBoxUi(pub Option<Entity>);
+pub struct RecipeBoxUi{
+    pub entity: Option<Entity>,
+    pub id: usize,
+}
 
 #[derive(Component)]
 pub struct RecipeShape;
@@ -111,8 +120,9 @@ fn init_box(extents: Vec2, pos: Vec2) -> ShapeBundle {
 
 pub fn init_ui(mut commands: Commands, mut asset_server: ResMut<AssetServer>) {
     let mut entities = vec![];
-    for _ in 0..9 {
-        let e = commands.spawn_bundle(square_shape(Usage::Storage)).insert(RecipeShape {}).id();
+    for i in 1..10 {
+        let id = if i >= SHAPES.len() { 0 } else { i };
+        let e = commands.spawn_bundle(SHAPES[id](Usage::Storage)).insert(RecipeShape {}).id();
         entities.push(e);
     }
     commands
@@ -190,7 +200,7 @@ pub fn init_ui(mut commands: Commands, mut asset_server: ResMut<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         position: Rect {
-                            bottom: Val::Percent(-100.0),
+                            bottom: Val::Percent(-120.0),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -216,16 +226,20 @@ pub fn init_ui(mut commands: Commands, mut asset_server: ResMut<AssetServer>) {
                             ..Default::default()
                         }).with_children(|parent| {
                             for c in 0..num_cols {
-                                parent.spawn_bundle(NodeBundle {
+                                let id = r * num_cols + c + 1;
+                                parent.spawn_bundle(ButtonBundle {
                                     style: Style {
                                         size: Size::new(Val::Percent(100.0 / num_cols as f32), Val::Percent(100.0)),
-                                        margin: Rect::all(Val::Percent(5.0)),
+                                        margin: Rect::all(Val::Px(5.0)),
                                         border: Rect::all(Val::Px(5.0)),
                                         ..Default::default()
                                     },
                                     color: Color::rgba(0.6, 0.6, 0.6, 0.0).into(),
                                     ..Default::default()
-                                }).insert(RecipeBoxUi(Some(entities[r * num_cols + c])));
+                                }).insert(RecipeBoxUi {
+                                    entity: Some(entities[id - 1]),
+                                    id,
+                                });
                             }
                         });
                     }
@@ -261,7 +275,7 @@ pub fn button_system(
                     let (entity, mut style) = recipe_box_query.single_mut();
                     let mut style_end = style.clone();
                     style_end.position.bottom = match button.clicked {
-                        true => Val::Percent(-100.0),
+                        true => Val::Percent(-120.0),
                         false => Val::Percent(20.0)
                     };
                     commands.spawn().insert(Animation {
@@ -290,7 +304,147 @@ pub fn button_system(
     }
 }
 
-pub fn update_ui(
+pub fn rounded_rect() -> ShapeBundle {
+    // let shape = shapes::SvgPathShape {
+    //     svg_path_string: "M -112.5 -60 H 112.5 A 22.5 22.5 90 0 1 135 -37.5 V 12.5 A 22.5 22.5 90 0 1 112.5 35 H -112.5 A 22.5 22.5 90 0 1 -135 12.5 V -37.5 A 22.5 22.5 90 0 1 -112.5 -60".into(),
+    //     svg_doc_size_in_px: Vec2::new(0., 0.)
+    // };
+    let shape = shapes::Rectangle {
+        extents: Vec2::new(200.0, 80.0),
+        origin: RectangleOrigin::Center
+    };
+    GeometryBuilder::build_as(
+        &shape,
+        DrawMode::Fill(FillMode::color(Color::rgba(0.1, 0.1, 0.1, 0.7))),
+        Transform {
+            translation: Vec3::new(0.0, 0.0, 12.0),
+            ..Default::default()
+        },
+    )
+}
+
+
+#[derive(Component)]
+struct RecipeHoveredBox(Vec3);
+
+#[derive(Default)]
+struct RecipeHoveredBoxUI(Option<Entity>);
+
+fn recipe_hover_system(
+    mut commands: Commands,
+    mut asset_server: Res<AssetServer>,
+    table_inverse: Res<TableInverse>,
+    button_query: Query<&RecipeDisplayButton>,
+    mut interaction_query: Query<
+        (&Interaction, &mut RecipeBoxUi, &GlobalTransform), Changed<Interaction>
+    >,
+    hovered_query: Query<Entity, With<RecipeHoveredBox>>
+) {
+    let button_query = button_query.single();
+    if button_query.timer.finished() {
+        for (interaction, mut ui, global_pos) in interaction_query.iter_mut() {
+            match *interaction {
+                Interaction::Hovered => {
+                    let header_style = TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 20.0,
+                        color: Color::WHITE,
+                    };
+                    let text_style = TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 15.0,
+                        color: Color::WHITE,
+                    };
+                    let text_alignment = TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    };
+                    let e = commands
+                        .spawn_bundle(rounded_rect())
+                        .insert(RecipeHoveredBox(
+                            Vec3::new(global_pos.translation.x, global_pos.translation.y + 80.0, 12.0))
+                        )
+                        .with_children(|parent| {
+                            parent.spawn_bundle(Text2dBundle {
+                                text: Text::with_section("Ingredient", header_style, text_alignment),
+                                transform: Transform::from_translation(Vec3::new(
+                                   0.0, 25.0, 13.0
+                                )),
+                                ..Default::default()
+                            });
+                            let y = -5.0;
+                            if let Some(v) = table_inverse.0.get(&ui.id) {
+                                let extents = Vec2::new(20.0, 20.0);
+                                let interval = 20.0;
+                                let mut cur_x = (v.len() - 1) as f32 * (-interval - extents.x) / 2.0;
+                                for (id, num) in v.iter() {
+                                    parent.spawn_bundle(
+                                        (Transform::from_translation(Vec3::new(
+                                            cur_x, y, 13.0
+                                        )),
+                                         GlobalTransform::default())
+                                    ).with_children(|parent| {
+                                        parent.spawn_bundle(SHAPES[*id as usize](Usage::Storage));
+                                    });
+                                    cur_x += extents.x;
+                                    parent.spawn_bundle(Text2dBundle {
+                                        text: Text::with_section(format!("×{}", num.to_string()), text_style.clone(), text_alignment),
+                                        transform: Transform::from_translation(Vec3::new(
+                                            cur_x, y, 13.0
+                                        )),
+                                        ..Default::default()
+                                    });
+                                    cur_x += interval;
+                                }
+                            } else {
+                                parent.spawn_bundle(Text2dBundle {
+                                    text: Text::with_section("None", text_style, text_alignment),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        0.0, y, 13.0
+                                    )),
+                                    ..Default::default()
+                                });
+                            }
+                        }).id();
+                }
+                Interaction::None => {
+                    if !hovered_query.is_empty() {
+                        for e in hovered_query.iter() {
+                            commands.entity(e).despawn_recursive();
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
+fn set_recipe_hovered_global_transform(
+    wnds: Res<Windows>,
+    mut q: QuerySet<(
+        QueryState<&Transform, With<MainCamera>>,
+        QueryState<(&mut Transform, &RecipeHoveredBox)>
+    )>
+) {
+    let wnd = wnds.get_primary().unwrap();
+    let camera_pos = q.q0().single();
+    let mut x = camera_pos.translation.x;
+    let mut y = camera_pos.translation.y;
+
+    let mut q1 = q.q1();
+    for (mut pos, hovered_box_pos) in q1.iter_mut() {
+        let offset_x = wnd.width() as f32 / 2.0 - hovered_box_pos.0.x;
+        let offset_y = wnd.height() as f32 / 2.0 - hovered_box_pos.0.y;
+        x -= offset_x;
+        y -= offset_y;
+
+        pos.translation.x = x;
+        pos.translation.y = y;
+    }
+}
+
+pub fn set_recipe_global_transform(
     wnds: Res<Windows>,
     mut q: QuerySet<(
         QueryState<&Transform, With<MainCamera>>,
@@ -300,8 +454,8 @@ pub fn update_ui(
 ) {
     let wnd = wnds.get_primary().unwrap();
     let camera_pos = q.q0().single();
-    let mut x = camera_pos.translation.x;
-    let mut y = camera_pos.translation.y;
+    let x = camera_pos.translation.x;
+    let y = camera_pos.translation.y;
 
     let q1 = q.q1();
     let mut v = vec![];
@@ -309,7 +463,7 @@ pub fn update_ui(
         v.push((
             x - (wnd.width() as f32 / 2.0 - global_pos.translation.x),
             y - (wnd.height() as f32 / 2.0 - global_pos.translation.y),
-            ui.0.unwrap()
+            ui.entity.unwrap()
         ));
     }
     let mut q2 = q.q2();
@@ -448,7 +602,12 @@ fn setup_blueprint_display(
         });
 }
 
-fn update_blueprint_box(commands: &mut Commands, parent: Entity, parent_ui: &mut BlueprintUI, id: Type) {
+fn update_blueprint_box(
+    commands: &mut Commands,
+    parent: Entity,
+    parent_ui: &mut BlueprintUI,
+    id: Type
+) {
     if id != parent_ui.child {
         if id == Type::Empty {
             commands.entity(parent).despawn_descendants();

@@ -9,6 +9,7 @@ use crate::RAPIER_TO_LYON;
 use Type::*;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd)]
+#[derive(Debug)]
 pub enum Type {
     Empty,
     Square,
@@ -74,9 +75,9 @@ pub static SCALE: &'static [f32] = &[
 pub fn init_table() -> Vec<(Vec<(Type, usize)>, Type)> {
     let table = vec![
         (vec![(Square, 2)], Rect),
-        (vec![(Circle, 3)], Heart),
+        // (vec![(Circle, 3)], Heart),
         (vec![(Circle, 2), (Triangle, 1)], Heart),
-        (vec![(Heart, 1)], Rust)
+        (vec![(Heart, 2)], Rust)
     ];
     table
 }
