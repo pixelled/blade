@@ -386,7 +386,7 @@ fn despawn_dead_entities(
 
 fn update_health_display (
     app_state: Res<State<AppState>>,
-    mut query: Query<&mut Text>,
+    mut query: Query<&mut Text, With<HealthText>>,
     player_health: Query<&Health, With<Player>>,
     mut health_bar: Query<&mut Style, With<HealthBarDisplay>>,
     mut health_bar_component: Query<&mut HealthBarDisplayComponent>,

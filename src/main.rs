@@ -7,6 +7,7 @@ mod particle;
 mod synthesis;
 mod shape_mod;
 mod ui;
+mod animation;
 
 use bundle::*;
 use in_game::*;
@@ -19,6 +20,7 @@ use shape_mod::*;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::prelude::ShapePlugin;
+use crate::animation::AnimationPlugin;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 
@@ -38,6 +40,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_state(AppState::Setup)
         .add_plugin(ParticlePlugin)
+        .add_plugin(AnimationPlugin)
         .add_system_set(
             SystemSet::on_enter(AppState::Setup)
                 .with_system(setup_game)
@@ -80,7 +83,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     spawn_boundary(&mut commands);
 
     spawn_health_bar(&mut commands);
-    commands.spawn_bundle(HealthTextBundle::new(&asset_server));
+    commands.spawn_bundle(HealthTextBundle::new(&asset_server)).insert(HealthText);
 
     commands.spawn_bundle(NodeBundle {
         style: Style {

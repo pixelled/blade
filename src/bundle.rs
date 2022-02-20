@@ -207,6 +207,9 @@ impl HealthTextBundle {
 pub struct HealthBarDisplay;
 
 #[derive(Component)]
+pub struct HealthText;
+
+#[derive(Component)]
 pub struct HealthBarDisplayComponent {
     pub cur_percent: f32,
     displayed_percent: f32,

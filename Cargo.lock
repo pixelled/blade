@@ -798,6 +798,7 @@ dependencies = [
  "bevy",
  "bevy_prototype_lyon",
  "bevy_rapier2d",
+ "interpolation",
  "itertools",
  "phf",
  "rand",
@@ -1774,6 +1775,12 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
 ]
+
+[[package]]
+name = "interpolation"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3b7357d2bbc5ee92f8e899ab645233e43d21407573cceb37fed8bc3dede2c02"
 
 [[package]]
 name = "io-kit-sys"
