@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::entity::ShapeBundle;
 use rand::{thread_rng, Rng};
 
-use super::{TIME_STEP, RAPIER_TO_LYON};
-use bevy::render::render_phase::Draw;
+use super::RAPIER_TO_LYON;
 
 // Reference: https://github.com/cvhariharan/smoke-rs
 
@@ -36,14 +34,17 @@ struct ParticleVel(Vec3);
 #[derive(Component)]
 struct ParticleAcc(Vec3);
 
-pub struct DespawnEvent(pub Vec3);
+pub struct DespawnEvent {
+    pub pos: Vec3,
+    pub num: usize
+}
 
 fn spawn_particles(
     mut commands: Commands,
     mut ev_despawn: EventReader<DespawnEvent>,
 ) {
     for ev in ev_despawn.iter() {
-        spawn_particle_group(&mut commands, ev.0, 5);
+        spawn_particle_group(&mut commands, ev.pos, ev.num);
     }
 }
 
@@ -60,7 +61,7 @@ fn kill_particles(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Lifetime, &mut DrawMode)>
 ) {
-    for (entity, mut lifetime, mut mode) in query.iter_mut() {
+    for (entity, mut lifetime, mode) in query.iter_mut() {
         lifetime.0 -= 3;
         if lifetime.0 <= 0 {
             commands.entity(entity).despawn();
@@ -81,7 +82,7 @@ fn apply_forces() {
 
 }
 
-fn spawn_particle_group(commands: &mut Commands, origin: Vec3, num: i32) {
+fn spawn_particle_group(commands: &mut Commands, origin: Vec3, num: usize) {
     let mut rng = thread_rng();
     let shape = shapes::Rectangle {
         extents: Vec2::new(1.0, 1.0) * 2.0 * RAPIER_TO_LYON,

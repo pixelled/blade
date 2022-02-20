@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::utils::Duration;
 
 #[derive(Component)]
 pub struct Animation<T> {

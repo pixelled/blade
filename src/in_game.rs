@@ -18,6 +18,7 @@ pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app
+            .insert_resource(TrailTimer(Timer::from_seconds(0.5, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -32,7 +33,7 @@ impl Plugin for InGamePlugin {
                     .with_system(player_movement_system)
                     .with_system(collision_detection)
                     .with_system(update_game_state)
-                    .with_system(test_particle_system)
+                    .with_system(trail_system)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -126,7 +127,7 @@ fn player_rotate_system(
 ) {
     let window = windows.get_primary().unwrap();
     if let Some(pos) = window.cursor_position() {
-        let (player_pos, mut player_vel, player_mprops) = player.single_mut();
+        let (player_pos, mut player_vel, _player_mprops) = player.single_mut();
         use nalgebra::UnitComplex;
         let size = Vec2::new(window.width() as f32, window.height() as f32);
         let pos = pos - size / 2.0;
@@ -180,7 +181,7 @@ fn player_throw_system(
 
         let iter = joint_set.joints_with(rigid_body_handle);
         let mut object_query = q.q1();
-        for (h1, h2, j) in iter {
+        for (_h1, h2, _j) in iter {
             let (mut obj_vel, obj_mprops) = object_query.get_mut(h2.entity()).unwrap();
             // object.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
             obj_vel.apply_impulse(obj_mprops, Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into())
@@ -348,12 +349,21 @@ fn collision_detection(
     }
 }
 
-fn test_particle_system(
+struct TrailTimer(Timer);
+
+fn trail_system(
     mut ev_despawn: EventWriter<DespawnEvent>,
+    time: Res<Time>,
+    mut timer: ResMut<TrailTimer>,
     q: Query<&Transform, With<Player>>,
 ) {
-    let q = q.single();
-    ev_despawn.send(DespawnEvent(q.translation));
+    if timer.0.tick(time.delta()).just_finished() {
+        let q = q.single();
+        ev_despawn.send(DespawnEvent {
+            pos: q.translation,
+            num: 1,
+        });
+    }
 }
 
 fn despawn_dead_entities(
@@ -369,7 +379,10 @@ fn despawn_dead_entities(
 ) {
     let (player_entity, player_health, pos): (Entity, &Health, _) = q.q0().single();
     if player_health.hp <= 0 {
-        ev_despawn.send(DespawnEvent(pos.translation));
+        ev_despawn.send(DespawnEvent {
+            pos: pos.translation,
+            num: 10
+        });
 
         let rigid_body_handle: RigidBodyHandle = player_entity.handle();
 

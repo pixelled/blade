@@ -353,7 +353,6 @@ fn rust_shape(usage: Usage) -> ShapeBundle {
 }
 
 fn rust(pos: Vec2) -> ObjectBundle {
-    use nalgebra::Isometry2;
     ObjectBundle {
         object: Object {},
         throwable: Throwable(Type::Rust),

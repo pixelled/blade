@@ -7,7 +7,6 @@ use crate::in_game::EntityInHand;
 use crate::component::*;
 use crate::shape_mod::*;
 use crate::ui::*;
-use crate::camera::MainCamera;
 
 use std::collections::HashMap;
 

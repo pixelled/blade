@@ -1,14 +1,12 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 use bevy::ui::PositionType::Absolute;
 
-use crate::{RAPIER_TO_LYON, AppState};
+use crate::AppState;
 use crate::shape_mod::*;
 use crate::synthesis::*;
 use crate::component::*;
-use crate::shape_mod::*;
 use crate::camera::*;
 use crate::animation::Animation;
 
@@ -118,7 +116,7 @@ fn init_box(extents: Vec2, pos: Vec2) -> ShapeBundle {
     )
 }
 
-pub fn init_ui(mut commands: Commands, mut asset_server: ResMut<AssetServer>) {
+pub fn init_ui(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let mut entities = vec![];
     for i in 1..10 {
         let id = if i >= SHAPES.len() { 0 } else { i };
@@ -251,7 +249,7 @@ pub fn button_timer_system(
     time: Res<Time>,
     mut q: Query<&mut RecipeDisplayButton>
 ) {
-    for (mut button) in q.iter_mut() {
+    for mut button in q.iter_mut() {
         button.timer.tick(time.delta());
     }
 }
@@ -272,7 +270,7 @@ pub fn button_system(
                         true => Color::hsl(c[0], c[1], 0.6).into(),
                         false => Color::hsl(c[0], c[1], 0.45).into(),
                     };
-                    let (entity, mut style) = recipe_box_query.single_mut();
+                    let (entity, style) = recipe_box_query.single_mut();
                     let mut style_end = style.clone();
                     style_end.position.bottom = match button.clicked {
                         true => Val::Percent(-120.0),
@@ -304,7 +302,7 @@ pub fn button_system(
     }
 }
 
-pub fn rounded_rect() -> ShapeBundle {
+pub fn rounded_rect(pos: Vec2) -> ShapeBundle {
     // let shape = shapes::SvgPathShape {
     //     svg_path_string: "M -112.5 -60 H 112.5 A 22.5 22.5 90 0 1 135 -37.5 V 12.5 A 22.5 22.5 90 0 1 112.5 35 H -112.5 A 22.5 22.5 90 0 1 -135 12.5 V -37.5 A 22.5 22.5 90 0 1 -112.5 -60".into(),
     //     svg_doc_size_in_px: Vec2::new(0., 0.)
@@ -317,7 +315,7 @@ pub fn rounded_rect() -> ShapeBundle {
         &shape,
         DrawMode::Fill(FillMode::color(Color::rgba(0.1, 0.1, 0.1, 0.7))),
         Transform {
-            translation: Vec3::new(0.0, 0.0, 12.0),
+            translation: Vec3::new(pos.x, pos.y, 12.0),
             ..Default::default()
         },
     )
@@ -332,7 +330,7 @@ struct RecipeHoveredBoxUI(Option<Entity>);
 
 fn recipe_hover_system(
     mut commands: Commands,
-    mut asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>,
     table_inverse: Res<TableInverse>,
     button_query: Query<&RecipeDisplayButton>,
     mut interaction_query: Query<
@@ -342,7 +340,7 @@ fn recipe_hover_system(
 ) {
     let button_query = button_query.single();
     if button_query.timer.finished() {
-        for (interaction, mut ui, global_pos) in interaction_query.iter_mut() {
+        for (interaction, ui, global_pos) in interaction_query.iter_mut() {
             match *interaction {
                 Interaction::Hovered => {
                     let header_style = TextStyle {
@@ -359,8 +357,8 @@ fn recipe_hover_system(
                         vertical: VerticalAlign::Center,
                         horizontal: HorizontalAlign::Center,
                     };
-                    let e = commands
-                        .spawn_bundle(rounded_rect())
+                    let _e = commands
+                        .spawn_bundle(rounded_rect(Vec2::new(-10000.0, -10000.0)))
                         .insert(RecipeHoveredBox(
                             Vec3::new(global_pos.translation.x, global_pos.translation.y + 80.0, 12.0))
                         )
@@ -459,7 +457,7 @@ pub fn set_recipe_global_transform(
 
     let q1 = q.q1();
     let mut v = vec![];
-    for (pos, global_pos, ui) in q1.iter() {
+    for (_pos, global_pos, ui) in q1.iter() {
         v.push((
             x - (wnd.width() as f32 / 2.0 - global_pos.translation.x),
             y - (wnd.height() as f32 / 2.0 - global_pos.translation.y),
