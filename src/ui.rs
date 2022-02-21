@@ -98,6 +98,12 @@ pub struct RecipeBox {
     pub clicked: bool,
 }
 
+#[derive(Component)]
+struct RecipeHoveredBox(Vec3);
+
+#[derive(Default)]
+struct RecipeHoveredBoxUI(Option<Entity>);
+
 fn init_box(extents: Vec2, pos: Vec2) -> ShapeBundle {
     let shape = shapes::Rectangle {
         extents,
@@ -320,13 +326,6 @@ pub fn rounded_rect(pos: Vec2) -> ShapeBundle {
         },
     )
 }
-
-
-#[derive(Component)]
-struct RecipeHoveredBox(Vec3);
-
-#[derive(Default)]
-struct RecipeHoveredBoxUI(Option<Entity>);
 
 fn recipe_hover_system(
     mut commands: Commands,

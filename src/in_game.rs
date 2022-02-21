@@ -18,7 +18,7 @@ pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(TrailTimer(Timer::from_seconds(0.5, true)))
+            .insert_resource(TrailTimer(Timer::from_seconds(0.01, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -361,7 +361,7 @@ fn trail_system(
         let q = q.single();
         ev_despawn.send(DespawnEvent {
             pos: q.translation,
-            num: 1,
+            num: 5,
         });
     }
 }

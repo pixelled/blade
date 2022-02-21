@@ -3,6 +3,7 @@ use bevy_prototype_lyon::prelude::*;
 use rand::{thread_rng, Rng};
 
 use super::RAPIER_TO_LYON;
+use bevy_prototype_lyon::render::Shape;
 
 // Reference: https://github.com/cvhariharan/smoke-rs
 
@@ -12,6 +13,7 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<DespawnEvent>()
+            // .add_startup_system(setup_particles)
             .add_system_set(
                 SystemSet::new()
                     .with_system(spawn_particles)
@@ -39,6 +41,15 @@ pub struct DespawnEvent {
     pub num: usize
 }
 
+// fn setup_particles(mut commands: Commands) {
+//     commands.insert_resource(ParticleShape(
+//         shapes::Rectangle {
+//             extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
+//             origin: RectangleOrigin::Center
+//         }
+//     ));
+// }
+
 fn spawn_particles(
     mut commands: Commands,
     mut ev_despawn: EventReader<DespawnEvent>,
@@ -57,23 +68,45 @@ fn update_positions(
     }
 }
 
+// fn kill_particles(
+//     mut commands: Commands,
+//     mut query: Query<(Entity, &mut Lifetime, &mut DrawMode)>
+// ) {
+//     for (entity, mut lifetime, mode) in query.iter_mut() {
+//         lifetime.0 -= 3;
+//         if lifetime.0 <= 0 {
+//             commands.entity(entity).despawn();
+//         } else {
+//             match mode.into_inner() {
+//                 DrawMode::Outlined { fill_mode, outline_mode } => {
+//                     let alpha = lifetime.0 as f32 / 255.0;
+//                     fill_mode.color.set_a(alpha);
+//                     outline_mode.color.set_a(alpha);
+//                 },
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// static PARTICLESHAPE: &'static [shapes::Rectangle] = &[
+//     shapes::Rectangle {
+//         extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
+//         origin: RectangleOrigin::Center
+//     }
+// ];
+
 fn kill_particles(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Lifetime, &mut DrawMode)>
+    mut query: Query<(Entity, &mut Lifetime, &mut Sprite)>
 ) {
-    for (entity, mut lifetime, mode) in query.iter_mut() {
+    for (entity, mut lifetime, mut mode) in query.iter_mut() {
         lifetime.0 -= 3;
         if lifetime.0 <= 0 {
             commands.entity(entity).despawn();
         } else {
-            match mode.into_inner() {
-                DrawMode::Outlined { fill_mode, outline_mode } => {
-                    let alpha = lifetime.0 as f32 / 255.0;
-                    fill_mode.color.set_a(alpha);
-                    outline_mode.color.set_a(alpha);
-                },
-                _ => {}
-            }
+            let alpha = lifetime.0 as f32 / 255.0;
+            mode.color.set_a(alpha);
         }
     }
 }
@@ -82,30 +115,48 @@ fn apply_forces() {
 
 }
 
-fn spawn_particle_group(commands: &mut Commands, origin: Vec3, num: usize) {
+fn spawn_particle_group(
+    commands: &mut Commands, origin: Vec3, num: usize
+) {
     let mut rng = thread_rng();
-    let shape = shapes::Rectangle {
-        extents: Vec2::new(1.0, 1.0) * 2.0 * RAPIER_TO_LYON,
-        origin: RectangleOrigin::Center
-    };
+    // let shape = shapes::Rectangle {
+    //     extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
+    //     origin: RectangleOrigin::Center
+    // };
     for _ in 0..num {
         commands
             .spawn_bundle(
-                GeometryBuilder::build_as(
-                    &shape,
-                    DrawMode::Outlined {
-                        fill_mode: FillMode::color(Color::rgba(0.7, 0.7, 0.7, 1.0)),
-                        outline_mode: StrokeMode::new(Color::GRAY, 1.0),
-                    },
-                    Transform {
-                        translation: Vec3::new(
-                            origin.x + rng.gen_range(-1.0..1.0),
-                            origin.y + rng.gen_range(-1.0..1.0),
-                            1.0
-                        ),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::rgba(0.7, 0.7, 0.7, 1.0),
                         ..Default::default()
                     },
-                )
+                    transform: Transform {
+                            translation: Vec3::new(
+                                origin.x + rng.gen_range(-1.0..1.0),
+                                origin.y + rng.gen_range(-1.0..1.0),
+                                1.0
+                            ),
+                            scale: Vec3::new(10.0, 10.0, 0.0),
+                            ..Default::default()
+                        },
+                    ..Default::default()
+                }
+            //     GeometryBuilder::build_as(
+            //         &particle_shape.0,
+            //         DrawMode::Outlined {
+            //             fill_mode: FillMode::color(Color::rgba(0.7, 0.7, 0.7, 1.0)),
+            //             outline_mode: StrokeMode::new(Color::GRAY, 1.0),
+            //         },
+            //         Transform {
+            //             translation: Vec3::new(
+            //                 origin.x + rng.gen_range(-1.0..1.0),
+            //                 origin.y + rng.gen_range(-1.0..1.0),
+            //                 1.0
+            //             ),
+            //             ..Default::default()
+            //         },
+            //     )
             )
             .insert(Lifetime(255))
             .insert(ParticleVel(Vec3::new(
