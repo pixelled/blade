@@ -13,8 +13,17 @@ pub struct Object;
 pub struct Throwable(pub Type);
 
 #[derive(Component)]
+pub struct Grabbed(pub Entity);
+
+#[derive(Component)]
 pub struct Health {
     pub hp: i32,
+}
+
+impl Health {
+    pub fn heal(&mut self, val: i32) {
+        self.hp = (self.hp + val).min(100).max(0);
+    }
 }
 
 #[derive(Component)]

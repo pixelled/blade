@@ -1,9 +1,5 @@
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::*;
 use rand::{thread_rng, Rng};
-
-use super::RAPIER_TO_LYON;
-use bevy_prototype_lyon::render::Shape;
 
 // Reference: https://github.com/cvhariharan/smoke-rs
 
@@ -36,21 +32,6 @@ struct ParticleVel(Vec3);
 #[derive(Component)]
 struct ParticleAcc(Vec3);
 
-// pub struct ParticleEvent {
-//     pub pos: Vec3,
-//     pub num: usize,
-//     pub color: Color
-// }
-
-// impl Default for ParticleEvent {
-//     fn default() -> Self {
-//         ParticleEvent {
-//             color: Color::rgba(0.7, 0.7, 0.7, 1.0),
-//             ..Default::default()
-//         }
-//     }
-// }
-
 pub struct ParticleEvent {
     pub pos: Vec3,
     pub num: usize,
@@ -67,21 +48,12 @@ impl Default for ParticleEvent {
     }
 }
 
-// fn setup_particles(mut commands: Commands) {
-//     commands.insert_resource(ParticleShape(
-//         shapes::Rectangle {
-//             extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
-//             origin: RectangleOrigin::Center
-//         }
-//     ));
-// }
-
 fn spawn_particles(
     mut commands: Commands,
     mut ev_despawn: EventReader<ParticleEvent>,
 ) {
     for ev in ev_despawn.iter() {
-        spawn_particle_group(&mut commands, ev.pos, ev.num);
+        spawn_particle_group(&mut commands, &ev);
     }
 }
 
@@ -93,34 +65,6 @@ fn update_positions(
         pos.translation += vel.0;
     }
 }
-
-// fn kill_particles(
-//     mut commands: Commands,
-//     mut query: Query<(Entity, &mut Lifetime, &mut DrawMode)>
-// ) {
-//     for (entity, mut lifetime, mode) in query.iter_mut() {
-//         lifetime.0 -= 3;
-//         if lifetime.0 <= 0 {
-//             commands.entity(entity).despawn();
-//         } else {
-//             match mode.into_inner() {
-//                 DrawMode::Outlined { fill_mode, outline_mode } => {
-//                     let alpha = lifetime.0 as f32 / 255.0;
-//                     fill_mode.color.set_a(alpha);
-//                     outline_mode.color.set_a(alpha);
-//                 },
-//                 _ => {}
-//             }
-//         }
-//     }
-// }
-
-// static PARTICLESHAPE: &'static [shapes::Rectangle] = &[
-//     shapes::Rectangle {
-//         extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
-//         origin: RectangleOrigin::Center
-//     }
-// ];
 
 fn kill_particles(
     mut commands: Commands,
@@ -141,48 +85,27 @@ fn apply_forces() {
 
 }
 
-fn spawn_particle_group(
-    commands: &mut Commands, origin: Vec3, num: usize
-) {
+fn spawn_particle_group(commands: &mut Commands, ev: &ParticleEvent) {
     let mut rng = thread_rng();
-    // let shape = shapes::Rectangle {
-    //     extents: Vec2::new(0.5, 0.5) * 2.0 * RAPIER_TO_LYON,
-    //     origin: RectangleOrigin::Center
-    // };
-    for _ in 0..num {
+    for _ in 0..ev.num {
         commands
             .spawn_bundle(
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+                        color: ev.color,
                         ..Default::default()
                     },
                     transform: Transform {
                             translation: Vec3::new(
-                                origin.x + rng.gen_range(-1.0..1.0),
-                                origin.y + rng.gen_range(-1.0..1.0),
-                                1.0
+                                ev.pos.x + rng.gen_range(-1.0..1.0),
+                                ev.pos.y + rng.gen_range(-1.0..1.0),
+                                ev.pos.z
                             ),
                             scale: Vec3::new(10.0, 10.0, 0.0),
                             ..Default::default()
                         },
                     ..Default::default()
                 }
-            //     GeometryBuilder::build_as(
-            //         &particle_shape.0,
-            //         DrawMode::Outlined {
-            //             fill_mode: FillMode::color(Color::rgba(0.7, 0.7, 0.7, 1.0)),
-            //             outline_mode: StrokeMode::new(Color::GRAY, 1.0),
-            //         },
-            //         Transform {
-            //             translation: Vec3::new(
-            //                 origin.x + rng.gen_range(-1.0..1.0),
-            //                 origin.y + rng.gen_range(-1.0..1.0),
-            //                 1.0
-            //             ),
-            //             ..Default::default()
-            //         },
-            //     )
             )
             .insert(Lifetime(255))
             .insert(ParticleVel(Vec3::new(

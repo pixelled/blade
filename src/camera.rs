@@ -6,13 +6,13 @@ use crate::RAPIER_TO_BEVY;
 
 #[derive(Component)]
 pub struct MainCamera {
-    // speed: f32,
+    pub speed_z: f32,
 }
 
 impl Default for MainCamera {
     fn default() -> Self {
         MainCamera {
-            // speed: 0.5,
+            speed_z: 0.01,
         }
     }
 }

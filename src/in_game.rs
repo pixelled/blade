@@ -13,12 +13,16 @@ use crate::particle::*;
 use crate::shape_mod::*;
 use std::f32::consts::PI;
 use rand::{thread_rng, Rng};
+use crate::magic::MagicPlugin;
+use crate::synthesis::SynthesisPlugin;
 
 pub struct InGamePlugin;
 
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugin(MagicPlugin)
+            .add_plugin(SynthesisPlugin)
             .init_resource::<ObjectToPlayer>()
             .insert_resource(TrailTimer(Timer::from_seconds(0.01, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
@@ -145,7 +149,7 @@ fn player_rotate_system(
 fn player_grab_system(
     mut commands: Commands,
     buttons: Res<Input<MouseButton>>,
-    mut object_to_player: ResMut<ObjectToPlayer>,
+    // mut object_to_player: ResMut<ObjectToPlayer>,
     entity_in_range: Res<EntityInRange>,
     mut entity_in_hand: ResMut<EntityInHand>,
     player_query: Query<Entity, With<Player>>,
@@ -160,15 +164,17 @@ fn player_grab_system(
                 .limit_axis([4.0, 7.0]);
             commands.spawn().insert(JointBuilderComponent::new(joint, player_entity, object_entity));
             entity_in_hand.entity = Some(object_entity);
-            object_to_player.0.insert(object_entity, player_entity);
+            commands.entity(object_entity).insert(Grabbed(player_entity));
+            // object_to_player.0.insert(object_entity, player_entity);
             println!("new joint built with {:?}", object_entity);
         }
     }
 }
 
 fn player_throw_system(
+    mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    mut object_to_player: ResMut<ObjectToPlayer>,
+    // mut object_to_player: ResMut<ObjectToPlayer>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -201,7 +207,8 @@ fn player_throw_system(
             &mut island_manager,
             &mut rigid_body_set,
         );
-        object_to_player.0.remove(&entity_in_hand.entity.unwrap());
+        commands.entity(entity_in_hand.entity.unwrap()).remove::<Grabbed>();
+        // object_to_player.0.remove(&entity_in_hand.entity.unwrap());
         entity_in_hand.entity = None;
     }
 }
@@ -367,9 +374,9 @@ fn trail_system(
     q: Query<&Transform, With<Player>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        let q = q.single();
+        let player_pos = q.single();
         ev_despawn.send(ParticleEvent {
-            pos: q.translation,
+            pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
             num: 5,
             color: Color::rgba(0.7, 0.7, 0.7, 1.0)
         });
@@ -387,10 +394,10 @@ fn despawn_dead_entities(
         QueryState<RigidBodyComponentsQueryPayload>
     )>,
 ) {
-    let (player_entity, player_health, pos): (Entity, &Health, _) = q.q0().single();
+    let (player_entity, player_health, player_pos): (Entity, &Health, _) = q.q0().single();
     if player_health.hp <= 0 {
         ev_despawn.send(ParticleEvent {
-            pos: pos.translation,
+            pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
             num: 10,
             color: Color::rgba(0.7, 0.7, 0.7, 1.0)
         });

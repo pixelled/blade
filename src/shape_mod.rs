@@ -3,7 +3,6 @@ use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
 use num_enum::TryFromPrimitive;
-use std::convert::TryFrom;
 
 use crate::bundle::*;
 use crate::component::*;

@@ -130,7 +130,7 @@ fn hold_stored_entity(
     if !keyboard_input.just_pressed(KeyCode::E) {
         return;
     }
-    let (player_e, mut storage, rb_pos) = q.single_mut();
+    let (player_entity, mut storage, rb_pos) = q.single_mut();
     if let Some(i) = storage_in_hand.cur {
         let id = storage.items[i];
         if id != Type::Empty {
@@ -140,7 +140,7 @@ fn hold_stored_entity(
                 let size = Vec2::new(window.width() as f32, window.height() as f32);
                 let pos = pos - size / 2.0;
                 let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
-                let object = commands.spawn_object(
+                let object_entity = commands.spawn_object(
                     id,
                     [rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
                          rb_pos.position.translation.y + 7.0 * cursor_rot.sin_angle()]
@@ -152,8 +152,9 @@ fn hold_stored_entity(
                     .limit_axis([6.5, 8.0]);
                 commands
                     .spawn()
-                    .insert(JointBuilderComponent::new(joint, player_e, object));
-                entity_in_hand.entity = Some(object);
+                    .insert(JointBuilderComponent::new(joint, player_entity, object_entity));
+                entity_in_hand.entity = Some(object_entity);
+                commands.entity(object_entity).insert(Grabbed(player_entity));
                 storage.items[i] = Type::Empty;
             }
         }

@@ -77,12 +77,6 @@ pub struct ObjectBundle {
     pub sync: RigidBodyPositionSync,
 }
 
-impl ObjectBundle {
-    pub fn new(pos: Vec2, id: Type) -> Self {
-        OBJECTS[id as usize](pos)
-    }
-}
-
 impl Default for ObjectBundle {
     fn default() -> Self {
         ObjectBundle {
@@ -111,7 +105,8 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
         let mut e = self.spawn();
         e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
         match id {
-            Type::Heart => { e.insert(Heal { hp: 1 }); },
+            Type::Heart => { e.insert(Heal::default()); },
+            Type::Triangle => { e.insert(Sight { radius: 0.0 }); },
             _ => {}
         }
         e

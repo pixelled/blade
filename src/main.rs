@@ -15,7 +15,6 @@ use in_game::*;
 use end_game::*;
 use camera::*;
 use particle::*;
-use synthesis::*;
 use shape_mod::*;
 
 use bevy::prelude::*;
@@ -51,7 +50,6 @@ fn main() {
                 .with_system(start_game)
         )
         .add_plugin(InGamePlugin)
-        .add_plugin(SynthesisPlugin)
         .add_plugin(EndGamePlugin)
         .run();
 }
