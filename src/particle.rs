@@ -12,7 +12,7 @@ pub struct ParticlePlugin;
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<DespawnEvent>()
+            .add_event::<ParticleEvent>()
             // .add_startup_system(setup_particles)
             .add_system_set(
                 SystemSet::new()
@@ -36,9 +36,35 @@ struct ParticleVel(Vec3);
 #[derive(Component)]
 struct ParticleAcc(Vec3);
 
-pub struct DespawnEvent {
+// pub struct ParticleEvent {
+//     pub pos: Vec3,
+//     pub num: usize,
+//     pub color: Color
+// }
+
+// impl Default for ParticleEvent {
+//     fn default() -> Self {
+//         ParticleEvent {
+//             color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+//             ..Default::default()
+//         }
+//     }
+// }
+
+pub struct ParticleEvent {
     pub pos: Vec3,
-    pub num: usize
+    pub num: usize,
+    pub color: Color
+}
+
+impl Default for ParticleEvent {
+    fn default() -> Self {
+        ParticleEvent {
+            pos: Vec3::ZERO,
+            num: 1,
+            color: Color::rgba(0.7, 0.7, 0.7, 1.0)
+        }
+    }
 }
 
 // fn setup_particles(mut commands: Commands) {
@@ -52,7 +78,7 @@ pub struct DespawnEvent {
 
 fn spawn_particles(
     mut commands: Commands,
-    mut ev_despawn: EventReader<DespawnEvent>,
+    mut ev_despawn: EventReader<ParticleEvent>,
 ) {
     for ev in ev_despawn.iter() {
         spawn_particle_group(&mut commands, ev.pos, ev.num);

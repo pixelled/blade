@@ -3,6 +3,7 @@ use bevy::core::FixedTimestep;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
+use bevy::utils::HashMap;
 
 use super::{AppState, TIME_STEP};
 use crate::component::*;
@@ -18,6 +19,7 @@ pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<ObjectToPlayer>()
             .insert_resource(TrailTimer(Timer::from_seconds(0.01, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
             .add_system_set(
@@ -84,6 +86,9 @@ pub struct EntityInHand {
 }
 
 #[derive(Default)]
+pub struct ObjectToPlayer(pub HashMap<Entity, Entity>);
+
+#[derive(Default)]
 pub struct SpawnTimer(pub Timer);
 
 fn spawn_objects(
@@ -95,8 +100,8 @@ fn spawn_objects(
     if timer.0.tick(time.delta()).just_finished() {
         if q.iter().len() < 10 {
             let mut rng = thread_rng();
-            let id = rng.gen_range::<usize, _>(0..BASIC.len());
-            commands.spawn_bundle(OBJECTS[id](Vec2::new(-50.0, 50.0)));
+            let id = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
+            commands.spawn_object(Type::try_from(id).unwrap(), [-50.0, 50.0]);
         }
     }
 }
@@ -107,7 +112,7 @@ fn spawn_player(
 ) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
     let object = commands
-        .spawn_bundle(ObjectBundle::new(Vec2::new(10.0, -10.0), Type::Square))
+        .spawn_object(Type::Square, [10.0, -10.0])
         .id();
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
@@ -140,27 +145,30 @@ fn player_rotate_system(
 fn player_grab_system(
     mut commands: Commands,
     buttons: Res<Input<MouseButton>>,
+    mut object_to_player: ResMut<ObjectToPlayer>,
     entity_in_range: Res<EntityInRange>,
     mut entity_in_hand: ResMut<EntityInHand>,
     player_query: Query<Entity, With<Player>>,
 ) {
     if entity_in_hand.entity.is_none() && buttons.pressed(MouseButton::Left) {
-        if let Some(entity) = entity_in_range.cur {
-            let player = player_query.single();
+        if let Some(object_entity) = entity_in_range.cur {
+            let player_entity = player_query.single();
             let axis = Vector::x_axis();
             let joint = PrismaticJoint::new(axis)
                 .local_anchor1(point![0.0, 0.0])
                 .local_anchor2(point![0.0, 0.0])
                 .limit_axis([4.0, 7.0]);
-            commands.spawn().insert(JointBuilderComponent::new(joint, player, entity));
-            entity_in_hand.entity = Some(entity);
-            println!("new joint built with {:?}", entity);
+            commands.spawn().insert(JointBuilderComponent::new(joint, player_entity, object_entity));
+            entity_in_hand.entity = Some(object_entity);
+            object_to_player.0.insert(object_entity, player_entity);
+            println!("new joint built with {:?}", object_entity);
         }
     }
 }
 
 fn player_throw_system(
     keyboard_input: Res<Input<KeyCode>>,
+    mut object_to_player: ResMut<ObjectToPlayer>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -193,6 +201,7 @@ fn player_throw_system(
             &mut island_manager,
             &mut rigid_body_set,
         );
+        object_to_player.0.remove(&entity_in_hand.entity.unwrap());
         entity_in_hand.entity = None;
     }
 }
@@ -352,23 +361,24 @@ fn collision_detection(
 struct TrailTimer(Timer);
 
 fn trail_system(
-    mut ev_despawn: EventWriter<DespawnEvent>,
+    mut ev_despawn: EventWriter<ParticleEvent>,
     time: Res<Time>,
     mut timer: ResMut<TrailTimer>,
     q: Query<&Transform, With<Player>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
         let q = q.single();
-        ev_despawn.send(DespawnEvent {
+        ev_despawn.send(ParticleEvent {
             pos: q.translation,
             num: 5,
+            color: Color::rgba(0.7, 0.7, 0.7, 1.0)
         });
     }
 }
 
 fn despawn_dead_entities(
     mut commands: Commands,
-    mut ev_despawn: EventWriter<DespawnEvent>,
+    mut ev_despawn: EventWriter<ParticleEvent>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -379,9 +389,10 @@ fn despawn_dead_entities(
 ) {
     let (player_entity, player_health, pos): (Entity, &Health, _) = q.q0().single();
     if player_health.hp <= 0 {
-        ev_despawn.send(DespawnEvent {
+        ev_despawn.send(ParticleEvent {
             pos: pos.translation,
-            num: 10
+            num: 10,
+            color: Color::rgba(0.7, 0.7, 0.7, 1.0)
         });
 
         let rigid_body_handle: RigidBodyHandle = player_entity.handle();

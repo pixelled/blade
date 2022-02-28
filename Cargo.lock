@@ -800,6 +800,7 @@ dependencies = [
  "bevy_rapier2d",
  "interpolation",
  "itertools",
+ "num_enum",
  "phf",
  "rand",
 ]

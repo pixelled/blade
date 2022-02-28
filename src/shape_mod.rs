@@ -2,14 +2,16 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
+use num_enum::TryFromPrimitive;
+use std::convert::TryFrom;
 
 use crate::bundle::*;
 use crate::component::*;
 use crate::RAPIER_TO_LYON;
 use Type::*;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Debug, TryFromPrimitive)]
+#[repr(u8)]
 pub enum Type {
     Empty,
     Square,
@@ -98,6 +100,7 @@ pub fn empty(_: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -139,6 +142,7 @@ fn square(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -180,6 +184,7 @@ fn circle(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -221,6 +226,7 @@ fn rect(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -269,6 +275,7 @@ fn triangle(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -323,6 +330,7 @@ fn heart(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }
 
@@ -369,5 +377,6 @@ fn rust(pos: Vec2) -> ObjectBundle {
             ..Default::default()
         },
         sync: RigidBodyPositionSync::Discrete,
+        ..Default::default()
     }
 }

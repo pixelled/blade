@@ -8,7 +8,8 @@ use crate::component::*;
 use crate::shape_mod::*;
 use crate::ui::*;
 
-use std::collections::HashMap;
+use bevy::utils::HashMap;
+use crate::bundle::CommandsSpawner;
 
 pub const STORAGE_SIZE: usize = 8;
 pub const BLUEPRINT_SIZE: usize = 4;
@@ -139,11 +140,10 @@ fn hold_stored_entity(
                 let size = Vec2::new(window.width() as f32, window.height() as f32);
                 let pos = pos - size / 2.0;
                 let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
-                let object = commands.spawn_bundle(
-                    OBJECTS[(id) as usize]
-                        (Vec2::new(rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
-                                   rb_pos.position.translation.y + 7.0 * cursor_rot.sin_angle())
-                        )
+                let object = commands.spawn_object(
+                    id,
+                    [rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
+                         rb_pos.position.translation.y + 7.0 * cursor_rot.sin_angle()]
                 ).id();
                 let axis = Vector::x_axis();
                 let joint = PrismaticJoint::new(axis)

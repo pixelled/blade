@@ -7,6 +7,8 @@ use super::RAPIER_TO_LYON;
 use crate::component::*;
 use crate::synthesis::*;
 use crate::shape_mod::*;
+use crate::magic::*;
+use bevy::ecs::system::EntityCommands;
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -63,6 +65,9 @@ pub struct ObjectBundle {
     pub object: Object,
     pub throwable: Throwable,
 
+    pub health: Health,
+    pub dmg: Dmg,
+
     #[bundle]
     pub shape: ShapeBundle,
     #[bundle]
@@ -75,6 +80,49 @@ pub struct ObjectBundle {
 impl ObjectBundle {
     pub fn new(pos: Vec2, id: Type) -> Self {
         OBJECTS[id as usize](pos)
+    }
+}
+
+impl Default for ObjectBundle {
+    fn default() -> Self {
+        ObjectBundle {
+            object: Object {},
+            throwable: Throwable(Type::Empty),
+            health: Health { hp: 10 },
+            dmg: Dmg(1),
+            shape: empty_shape(Usage::World),
+            rigid_body: RigidBodyBundle {
+                ..Default::default()
+            },
+            collider: ColliderBundle {
+                ..Default::default()
+            },
+            sync: RigidBodyPositionSync::Discrete,
+        }
+    }
+}
+
+pub trait CommandsSpawner<'w, 's> {
+    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a>;
+}
+
+impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
+    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn();
+        e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
+        match id {
+            Type::Heart => { e.insert(Heal { hp: 1 }); },
+            _ => {}
+        }
+        e
+    }
+}
+
+/// object!(id: Type, pos: [f32, f32])
+#[macro_export]
+macro_rules! object {
+    ($id:expr, $pos:expr) => {
+        OBJECTS[$id as usize](Vec2::from($pos))
     }
 }
 

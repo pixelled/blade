@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::shape_mod::Type;
-use std::collections::HashMap;
+use bevy::utils::HashMap;
 use itertools::Itertools;
 
 #[derive(Component)]
@@ -18,7 +18,7 @@ pub struct Health {
 }
 
 #[derive(Component)]
-pub struct Damage(i32);
+pub struct Dmg(pub i32);
 
 #[derive(Component)]
 pub struct Storage {
@@ -45,7 +45,11 @@ impl Storage {
 
 impl From<Storage> for HashMap<Type, usize> {
     fn from(sto: Storage) -> Self {
-        sto.items.into_iter().filter(|x| *x != Type::Empty).counts()
+        // sto.items.into_iter().filter(|x| *x != Type::Empty).counts()
+        let mut counts = HashMap::default();
+        sto.items.into_iter().filter(|x| *x != Type::Empty)
+            .for_each(|item| *counts.entry(item).or_default() += 1);
+        counts
     }
 }
 
@@ -64,7 +68,10 @@ impl From<Blueprint> for std::vec::Vec<(Type, usize)> {
 
 impl From<Blueprint> for HashMap<Type, usize> {
     fn from(bp: Blueprint) -> Self {
-        bp.items.into_iter().filter(|x| *x != Type::Empty).counts()
+        let mut counts = HashMap::default();
+        bp.items.into_iter().filter(|x| *x != Type::Empty)
+            .for_each(|item| *counts.entry(item).or_default() += 1);
+        counts
     }
 }
 
