@@ -1,15 +1,15 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
+use bevy_rapier2d::prelude::*;
 
 use super::AppState;
-use crate::in_game::EntityInHand;
 use crate::component::*;
+use crate::in_game::EntityInHand;
 use crate::shape_mod::*;
 use crate::ui::*;
 
-use bevy::utils::HashMap;
 use crate::bundle::CommandsSpawner;
+use bevy::utils::HashMap;
 
 pub const STORAGE_SIZE: usize = 8;
 pub const BLUEPRINT_SIZE: usize = 4;
@@ -18,13 +18,9 @@ pub struct SynthesisPlugin;
 
 impl Plugin for SynthesisPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugin(UIPlugin)
+        app.add_plugin(UIPlugin)
             .init_resource::<StorageInHand>()
-            .add_system_set(
-                SystemSet::on_enter(AppState::Setup)
-                    .with_system(setup_table)
-            )
+            .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_table))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(set_recipe_global_transform)
@@ -33,7 +29,7 @@ impl Plugin for SynthesisPlugin {
                     .with_system(synthesize_entity)
                     .with_system(store_entity)
                     .with_system(hold_stored_entity)
-                    .with_system(button_system)
+                    .with_system(button_system),
             );
     }
 }
@@ -55,8 +51,14 @@ fn storage_input(
     mut q: Query<(&Storage, &mut Blueprint)>,
 ) {
     let keys = vec![
-        KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4,
-        KeyCode::Key5, KeyCode::Key6, KeyCode::Key7, KeyCode::Key8,
+        KeyCode::Key1,
+        KeyCode::Key2,
+        KeyCode::Key3,
+        KeyCode::Key4,
+        KeyCode::Key5,
+        KeyCode::Key6,
+        KeyCode::Key7,
+        KeyCode::Key8,
     ];
     if keyboard_input.any_just_pressed(keys) {
         storage_in_hand.prev = storage_in_hand.cur;
@@ -95,7 +97,7 @@ fn store_entity(
     mut entity_in_hand: ResMut<EntityInHand>,
     mut q: QuerySet<(
         QueryState<(Entity, &mut Storage), With<Player>>,
-        QueryState<RigidBodyComponentsQueryPayload>
+        QueryState<RigidBodyComponentsQueryPayload>,
     )>,
     query_id: Query<&Throwable>,
 ) {
@@ -104,7 +106,7 @@ fn store_entity(
             let mut player_query = q.q0();
             let (player_entity, mut storage): (Entity, Mut<Storage>) = player_query.single_mut();
             if !storage.insert(query_id.get(e_in_hand).unwrap().0) {
-                return
+                return;
             }
             let rigid_body_handle: RigidBodyHandle = player_entity.handle();
             let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
@@ -140,21 +142,29 @@ fn hold_stored_entity(
                 let size = Vec2::new(window.width() as f32, window.height() as f32);
                 let pos = pos - size / 2.0;
                 let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
-                let object_entity = commands.spawn_object(
-                    id,
-                    [rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
-                         rb_pos.position.translation.y + 7.0 * cursor_rot.sin_angle()]
-                ).id();
+                let object_entity = commands
+                    .spawn_object(
+                        id,
+                        [
+                            rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
+                            rb_pos.position.translation.y + 7.0 * cursor_rot.sin_angle(),
+                        ],
+                    )
+                    .id();
                 let axis = Vector::x_axis();
                 let joint = PrismaticJoint::new(axis)
                     .local_anchor1(point![0.0, 0.0])
                     .local_anchor2(point![0.0, 0.0])
                     .limit_axis([6.5, 8.0]);
-                commands
-                    .spawn()
-                    .insert(JointBuilderComponent::new(joint, player_entity, object_entity));
+                commands.spawn().insert(JointBuilderComponent::new(
+                    joint,
+                    player_entity,
+                    object_entity,
+                ));
                 entity_in_hand.entity = Some(object_entity);
-                commands.entity(object_entity).insert(Grabbed(player_entity));
+                commands
+                    .entity(object_entity)
+                    .insert(Grabbed(player_entity));
                 storage.items[i] = Type::Empty;
             }
         }
@@ -172,7 +182,7 @@ fn check_ingredients(sto: &Storage, bp: &Blueprint) -> (bool, Vec<usize>) {
                 if *c == 0 {
                     bp_map.remove(id);
                 }
-            },
+            }
             None => {}
         }
     }
@@ -198,16 +208,13 @@ fn synthesize_entity(
                     storage.remove(&indices);
                     storage.insert(id);
                 }
-            },
+            }
             None => {}
         }
     }
 }
 
-fn clear_entity(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut bp_query: Query<&mut Blueprint>,
-) {
+fn clear_entity(keyboard_input: Res<Input<KeyCode>>, mut bp_query: Query<&mut Blueprint>) {
     if keyboard_input.just_pressed(KeyCode::C) {
         let mut bp = bp_query.single_mut();
         bp.clear();

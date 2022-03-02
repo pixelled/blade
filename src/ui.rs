@@ -1,27 +1,26 @@
 use bevy::prelude::*;
+use bevy::ui::PositionType::Absolute;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
-use bevy::ui::PositionType::Absolute;
 
-use crate::AppState;
+use crate::animation::Animation;
+use crate::camera::*;
+use crate::component::*;
 use crate::shape_mod::*;
 use crate::synthesis::*;
-use crate::component::*;
-use crate::camera::*;
-use crate::animation::Animation;
+use crate::AppState;
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<StorageUIs>()
+        app.init_resource::<StorageUIs>()
             .init_resource::<BlueprintUIs>()
             .add_system_set(
                 SystemSet::on_enter(AppState::Setup)
                     .with_system(init_ui)
                     .with_system(setup_storage_display)
-                    .with_system(setup_blueprint_display)
+                    .with_system(setup_blueprint_display),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -29,7 +28,7 @@ impl Plugin for UIPlugin {
                     .with_system(update_blueprint_display)
                     .with_system(button_system)
                     .with_system(button_timer_system)
-                    .with_system(recipe_hover_system)
+                    .with_system(recipe_hover_system),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -37,7 +36,7 @@ impl Plugin for UIPlugin {
                     .with_system(set_recipe_hovered_global_transform)
                     .with_system(set_storage_global_transform)
                     .with_system(set_blueprint_global_transform)
-                    .after("camera")
+                    .after("camera"),
             );
     }
 }
@@ -61,12 +60,12 @@ pub struct BlueprintUIs {
 
 #[derive(Component)]
 pub struct StorageUI {
-    pub child: Type
+    pub child: Type,
 }
 
 #[derive(Component)]
 pub struct BlueprintUI {
-    pub child: Type
+    pub child: Type,
 }
 
 #[derive(Component)]
@@ -85,7 +84,7 @@ pub struct RecipeDisplayButton {
 pub struct RecipeTableUi(pub Option<Entity>);
 
 #[derive(Component)]
-pub struct RecipeBoxUi{
+pub struct RecipeBoxUi {
     pub entity: Option<Entity>,
     pub id: usize,
 }
@@ -107,7 +106,7 @@ struct RecipeHoveredBoxUI(Option<Entity>);
 fn init_box(extents: Vec2, pos: Vec2) -> ShapeBundle {
     let shape = shapes::Rectangle {
         extents,
-        origin: RectangleOrigin::Center
+        origin: RectangleOrigin::Center,
     };
     GeometryBuilder::build_as(
         &shape,
@@ -126,7 +125,10 @@ pub fn init_ui(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let mut entities = vec![];
     for i in 1..10 {
         let id = if i >= SHAPES.len() { 0 } else { i };
-        let e = commands.spawn_bundle(SHAPES[id](Usage::Storage)).insert(RecipeShape {}).id();
+        let e = commands
+            .spawn_bundle(SHAPES[id](Usage::Storage))
+            .insert(RecipeShape {})
+            .id();
         entities.push(e);
     }
     commands
@@ -149,50 +151,54 @@ pub fn init_ui(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         })
         .with_children(|parent| {
             // button with text
-            parent.spawn_bundle(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Px(100.0), Val::Px(50.0)),
-                    // center button
-                    margin: Rect::all(Val::Auto),
-                    // horizontally center child text
-                    justify_content: JustifyContent::Center,
-                    // vertically center child text
-                    align_items: AlignItems::Center,
-                    position_type: Absolute,
-                    border: Rect::all(Val::Px(5.0)),
-                    ..Default::default()
-                },
-                color: Color::hsla(50.0, 1.0, 0.5, 1.0).into(),
-                ..Default::default()
-            }).with_children(|parent| {
-                parent.spawn_bundle(ButtonBundle {
+            parent
+                .spawn_bundle(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        size: Size::new(Val::Px(100.0), Val::Px(50.0)),
+                        // center button
+                        margin: Rect::all(Val::Auto),
+                        // horizontally center child text
                         justify_content: JustifyContent::Center,
+                        // vertically center child text
                         align_items: AlignItems::Center,
+                        position_type: Absolute,
+                        border: Rect::all(Val::Px(5.0)),
                         ..Default::default()
                     },
-                    color: Color::hsla(50.0, 1.0, 0.6, 1.0).into(),
+                    color: Color::hsla(50.0, 1.0, 0.5, 1.0).into(),
                     ..Default::default()
-                }).insert(RecipeDisplayButton {
-                    clicked: false,
-                    timer: Timer::from_seconds(0.3, false),
                 })
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Recipes",
-                                TextStyle {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: 20.0,
-                                    color: Color::rgb(0.2, 0.2, 0.2),
-                                },
-                                Default::default(),
-                            ),
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..Default::default()
+                            },
+                            color: Color::hsla(50.0, 1.0, 0.6, 1.0).into(),
                             ..Default::default()
+                        })
+                        .insert(RecipeDisplayButton {
+                            clicked: false,
+                            timer: Timer::from_seconds(0.3, false),
+                        })
+                        .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "Recipes",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 20.0,
+                                        color: Color::rgb(0.2, 0.2, 0.2),
+                                    },
+                                    Default::default(),
+                                ),
+                                ..Default::default()
+                            });
                         });
-                    });
-            });
+                });
 
             // recipe book
             parent
@@ -211,50 +217,58 @@ pub fn init_ui(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     },
                     color: Color::rgba(0.6, 0.6, 0.6, 0.0).into(),
                     ..Default::default()
-                }).insert(RecipeBox { clicked: false })
+                })
+                .insert(RecipeBox { clicked: false })
                 .with_children(|parent| {
                     let num_rows = 3;
                     let num_cols = 3;
                     for r in 0..num_rows {
-                        parent.spawn_bundle(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0 / num_rows as f32)),
-                                // margin: Rect::all(Val::Percent(5.0)),
-                                border: Rect::all(Val::Px(5.0)),
-                                flex_direction: FlexDirection::Row,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..Default::default()
-                            },
-                            color: Color::NONE.into(),
-                            ..Default::default()
-                        }).with_children(|parent| {
-                            for c in 0..num_cols {
-                                let id = r * num_cols + c + 1;
-                                parent.spawn_bundle(ButtonBundle {
-                                    style: Style {
-                                        size: Size::new(Val::Percent(100.0 / num_cols as f32), Val::Percent(100.0)),
-                                        margin: Rect::all(Val::Px(5.0)),
-                                        border: Rect::all(Val::Px(5.0)),
-                                        ..Default::default()
-                                    },
-                                    color: Color::rgba(0.6, 0.6, 0.6, 0.0).into(),
+                        parent
+                            .spawn_bundle(NodeBundle {
+                                style: Style {
+                                    size: Size::new(
+                                        Val::Percent(100.0),
+                                        Val::Percent(100.0 / num_rows as f32),
+                                    ),
+                                    // margin: Rect::all(Val::Percent(5.0)),
+                                    border: Rect::all(Val::Px(5.0)),
+                                    flex_direction: FlexDirection::Row,
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
                                     ..Default::default()
-                                }).insert(RecipeBoxUi {
-                                    entity: Some(entities[id - 1]),
-                                    id,
-                                });
-                            }
-                        });
+                                },
+                                color: Color::NONE.into(),
+                                ..Default::default()
+                            })
+                            .with_children(|parent| {
+                                for c in 0..num_cols {
+                                    let id = r * num_cols + c + 1;
+                                    parent
+                                        .spawn_bundle(ButtonBundle {
+                                            style: Style {
+                                                size: Size::new(
+                                                    Val::Percent(100.0 / num_cols as f32),
+                                                    Val::Percent(100.0),
+                                                ),
+                                                margin: Rect::all(Val::Px(5.0)),
+                                                border: Rect::all(Val::Px(5.0)),
+                                                ..Default::default()
+                                            },
+                                            color: Color::rgba(0.6, 0.6, 0.6, 0.0).into(),
+                                            ..Default::default()
+                                        })
+                                        .insert(RecipeBoxUi {
+                                            entity: Some(entities[id - 1]),
+                                            id,
+                                        });
+                                }
+                            });
                     }
                 });
         });
 }
 
-pub fn button_timer_system(
-    time: Res<Time>,
-    mut q: Query<&mut RecipeDisplayButton>
-) {
+pub fn button_timer_system(time: Res<Time>, mut q: Query<&mut RecipeDisplayButton>) {
     for mut button in q.iter_mut() {
         button.timer.tick(time.delta());
     }
@@ -263,9 +277,10 @@ pub fn button_timer_system(
 pub fn button_system(
     mut commands: Commands,
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor, &mut RecipeDisplayButton), Changed<Interaction>
+        (&Interaction, &mut UiColor, &mut RecipeDisplayButton),
+        Changed<Interaction>,
     >,
-    mut recipe_box_query: Query<(Entity, &mut Style), With<RecipeBox>>
+    mut recipe_box_query: Query<(Entity, &mut Style), With<RecipeBox>>,
 ) {
     for (interaction, mut color, mut button) in interaction_query.iter_mut() {
         match *interaction {
@@ -280,24 +295,24 @@ pub fn button_system(
                     let mut style_end = style.clone();
                     style_end.position.bottom = match button.clicked {
                         true => Val::Percent(-120.0),
-                        false => Val::Percent(20.0)
+                        false => Val::Percent(20.0),
                     };
                     commands.spawn().insert(Animation {
                         entity,
                         start: style.clone(),
                         end: style_end,
-                        timer: Timer::from_seconds(0.2, false)
+                        timer: Timer::from_seconds(0.2, false),
                     });
                     button.clicked = !button.clicked;
                     button.timer.reset();
                 }
-            },
+            }
             Interaction::Hovered => {
                 if !button.clicked {
                     let c = color.0.as_hlsa_f32();
                     color.0 = Color::hsl(c[0], c[1], 0.7).into();
                 }
-            },
+            }
             Interaction::None => {
                 if !button.clicked {
                     let c = color.0.as_hlsa_f32();
@@ -315,7 +330,7 @@ pub fn rounded_rect(pos: Vec2) -> ShapeBundle {
     // };
     let shape = shapes::Rectangle {
         extents: Vec2::new(200.0, 80.0),
-        origin: RectangleOrigin::Center
+        origin: RectangleOrigin::Center,
     };
     GeometryBuilder::build_as(
         &shape,
@@ -333,9 +348,10 @@ fn recipe_hover_system(
     table_inverse: Res<TableInverse>,
     button_query: Query<&RecipeDisplayButton>,
     mut interaction_query: Query<
-        (&Interaction, &mut RecipeBoxUi, &GlobalTransform), Changed<Interaction>
+        (&Interaction, &mut RecipeBoxUi, &GlobalTransform),
+        Changed<Interaction>,
     >,
-    hovered_query: Query<Entity, With<RecipeHoveredBox>>
+    hovered_query: Query<Entity, With<RecipeHoveredBox>>,
 ) {
     let button_query = button_query.single();
     if button_query.timer.finished() {
@@ -358,36 +374,46 @@ fn recipe_hover_system(
                     };
                     let _e = commands
                         .spawn_bundle(rounded_rect(Vec2::new(-10000.0, -10000.0)))
-                        .insert(RecipeHoveredBox(
-                            Vec3::new(global_pos.translation.x, global_pos.translation.y + 80.0, 12.0))
-                        )
+                        .insert(RecipeHoveredBox(Vec3::new(
+                            global_pos.translation.x,
+                            global_pos.translation.y + 80.0,
+                            12.0,
+                        )))
                         .with_children(|parent| {
                             parent.spawn_bundle(Text2dBundle {
-                                text: Text::with_section("Ingredient", header_style, text_alignment),
-                                transform: Transform::from_translation(Vec3::new(
-                                   0.0, 25.0, 13.0
-                                )),
+                                text: Text::with_section(
+                                    "Ingredient",
+                                    header_style,
+                                    text_alignment,
+                                ),
+                                transform: Transform::from_translation(Vec3::new(0.0, 25.0, 13.0)),
                                 ..Default::default()
                             });
                             let y = -5.0;
                             if let Some(v) = table_inverse.0.get(&ui.id) {
                                 let extents = Vec2::new(20.0, 20.0);
                                 let interval = 20.0;
-                                let mut cur_x = (v.len() - 1) as f32 * (-interval - extents.x) / 2.0;
+                                let mut cur_x =
+                                    (v.len() - 1) as f32 * (-interval - extents.x) / 2.0;
                                 for (id, num) in v.iter() {
-                                    parent.spawn_bundle(
-                                        (Transform::from_translation(Vec3::new(
-                                            cur_x, y, 13.0
-                                        )),
-                                         GlobalTransform::default())
-                                    ).with_children(|parent| {
-                                        parent.spawn_bundle(SHAPES[*id as usize](Usage::Storage));
-                                    });
+                                    parent
+                                        .spawn_bundle((
+                                            Transform::from_translation(Vec3::new(cur_x, y, 13.0)),
+                                            GlobalTransform::default(),
+                                        ))
+                                        .with_children(|parent| {
+                                            parent
+                                                .spawn_bundle(SHAPES[*id as usize](Usage::Storage));
+                                        });
                                     cur_x += extents.x;
                                     parent.spawn_bundle(Text2dBundle {
-                                        text: Text::with_section(format!("×{}", num.to_string()), text_style.clone(), text_alignment),
+                                        text: Text::with_section(
+                                            format!("×{}", num.to_string()),
+                                            text_style.clone(),
+                                            text_alignment,
+                                        ),
                                         transform: Transform::from_translation(Vec3::new(
-                                            cur_x, y, 13.0
+                                            cur_x, y, 13.0,
                                         )),
                                         ..Default::default()
                                     });
@@ -396,13 +422,12 @@ fn recipe_hover_system(
                             } else {
                                 parent.spawn_bundle(Text2dBundle {
                                     text: Text::with_section("None", text_style, text_alignment),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        0.0, y, 13.0
-                                    )),
+                                    transform: Transform::from_translation(Vec3::new(0.0, y, 13.0)),
                                     ..Default::default()
                                 });
                             }
-                        }).id();
+                        })
+                        .id();
                 }
                 Interaction::None => {
                     if !hovered_query.is_empty() {
@@ -410,7 +435,7 @@ fn recipe_hover_system(
                             commands.entity(e).despawn_recursive();
                         }
                     }
-                },
+                }
                 _ => {}
             }
         }
@@ -421,8 +446,8 @@ fn set_recipe_hovered_global_transform(
     wnds: Res<Windows>,
     mut q: QuerySet<(
         QueryState<&Transform, With<MainCamera>>,
-        QueryState<(&mut Transform, &RecipeHoveredBox)>
-    )>
+        QueryState<(&mut Transform, &RecipeHoveredBox)>,
+    )>,
 ) {
     let wnd = wnds.get_primary().unwrap();
     let camera_pos = q.q0().single();
@@ -446,8 +471,8 @@ pub fn set_recipe_global_transform(
     mut q: QuerySet<(
         QueryState<&Transform, With<MainCamera>>,
         QueryState<(&Transform, &GlobalTransform, &RecipeBoxUi)>,
-        QueryState<&mut Transform, With<RecipeShape>>
-    )>
+        QueryState<&mut Transform, With<RecipeShape>>,
+    )>,
 ) {
     let wnd = wnds.get_primary().unwrap();
     let camera_pos = q.q0().single();
@@ -460,7 +485,7 @@ pub fn set_recipe_global_transform(
         v.push((
             x - (wnd.width() as f32 / 2.0 - global_pos.translation.x),
             y - (wnd.height() as f32 / 2.0 - global_pos.translation.y),
-            ui.entity.unwrap()
+            ui.entity.unwrap(),
         ));
     }
     let mut q2 = q.q2();
@@ -471,16 +496,16 @@ pub fn set_recipe_global_transform(
     }
 }
 
-fn setup_storage_display(
-    mut commands: Commands,
-    mut storage_ui: ResMut<StorageUIs>,
-) {
+fn setup_storage_display(mut commands: Commands, mut storage_ui: ResMut<StorageUIs>) {
     let storage_ui = storage_ui.as_mut();
     commands
-        .spawn_bundle((Transform {
-            translation: Vec3::new(0.0, 0.0, 3.0),
-            ..Default::default()
-        }, GlobalTransform::default()))
+        .spawn_bundle((
+            Transform {
+                translation: Vec3::new(0.0, 0.0, 3.0),
+                ..Default::default()
+            },
+            GlobalTransform::default(),
+        ))
         .insert(StorageBox)
         .with_children(|parent| {
             let extents = Vec2::new(40.0, 40.0);
@@ -490,8 +515,7 @@ fn setup_storage_display(
                 let e = parent
                     .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
                     .insert(StorageUI { child: Type::Empty })
-                    .with_children(|_| {
-                    })
+                    .with_children(|_| {})
                     .id();
                 storage_ui.entities.push(e);
                 cur_x += extents.x + interval;
@@ -505,8 +529,9 @@ fn update_storage_display(
     storage_in_hand: ResMut<StorageInHand>,
     storage: Query<&Storage>,
     mut q: Query<(&mut Children, &mut StorageUI)>,
-    mut transform_query: Query<&mut Transform, With<StorageShape>>
+    mut transform_query: Query<&mut Transform, With<StorageShape>>,
 ) {
+    println!("Update Storage");
     let storage = storage.single();
     // println!("{:?}", storage_in_hand);
     if storage_in_hand.cur != storage_in_hand.prev {
@@ -549,8 +574,8 @@ fn set_storage_global_transform(
     wnds: Res<Windows>,
     mut q: QuerySet<(
         QueryState<&Transform, With<MainCamera>>,
-        QueryState<&mut Transform, With<StorageBox>>
-    )>
+        QueryState<&mut Transform, With<StorageBox>>,
+    )>,
 ) {
     let wnd = wnds.get_primary().unwrap();
     let camera_pos = q.q0().single();
@@ -563,17 +588,17 @@ fn set_storage_global_transform(
     storage_pos.translation.y = y;
 }
 
-fn setup_blueprint_display(
-    mut commands: Commands,
-    mut blueprint_uis: ResMut<BlueprintUIs>,
-) {
+fn setup_blueprint_display(mut commands: Commands, mut blueprint_uis: ResMut<BlueprintUIs>) {
     let blueprint_uis = blueprint_uis.as_mut();
-    commands.spawn_bundle(
-        (Transform {
-            translation: Vec3::new(0.0, 0.0, 3.0),
-            ..Default::default()
-        }, GlobalTransform::default())
-    ).insert(BlueprintBox)
+    commands
+        .spawn_bundle((
+            Transform {
+                translation: Vec3::new(0.0, 0.0, 3.0),
+                ..Default::default()
+            },
+            GlobalTransform::default(),
+        ))
+        .insert(BlueprintBox)
         .with_children(|parent| {
             let extents = Vec2::new(40.0, 40.0);
             let interval = 0.0;
@@ -582,8 +607,7 @@ fn setup_blueprint_display(
                 let e = parent
                     .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
                     .insert(BlueprintUI { child: Type::Empty })
-                    .with_children(|_| {
-                    })
+                    .with_children(|_| {})
                     .id();
                 blueprint_uis.entities.push(e);
                 cur_x += extents.x + interval;
@@ -603,7 +627,7 @@ fn update_blueprint_box(
     commands: &mut Commands,
     parent: Entity,
     parent_ui: &mut BlueprintUI,
-    id: Type
+    id: Type,
 ) {
     if id != parent_ui.child {
         if id == Type::Empty {
@@ -641,7 +665,7 @@ fn update_blueprint_display(
         Some(&id) => {
             update_blueprint_box(&mut commands, parent, blueprint_ui.as_mut(), id);
             blueprint_ui.child = id;
-        },
+        }
         None => {
             commands.entity(parent).despawn_descendants();
             blueprint_ui.child = Type::Empty;
@@ -653,8 +677,8 @@ fn set_blueprint_global_transform(
     wnds: Res<Windows>,
     mut q: QuerySet<(
         QueryState<&Transform, With<MainCamera>>,
-        QueryState<&mut Transform, With<BlueprintBox>>
-    )>
+        QueryState<&mut Transform, With<BlueprintBox>>,
+    )>,
 ) {
     let wnd = wnds.get_primary().unwrap();
     let camera_pos = q.q0().single();

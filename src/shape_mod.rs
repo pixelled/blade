@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
+use bevy_rapier2d::prelude::*;
 use num_enum::TryFromPrimitive;
 
 use crate::bundle::*;
@@ -18,7 +18,7 @@ pub enum Type {
     Rect,
     Triangle,
     Heart,
-    Rust
+    Rust,
 }
 
 pub enum Usage {
@@ -39,9 +39,7 @@ impl Ord for Type {
     }
 }
 
-pub static BASIC: &'static [Type] = &[
-    Square, Circle, Triangle
-];
+pub static BASIC: &'static [Type] = &[Square, Circle, Triangle];
 
 pub static SHAPES: &'static [fn(Usage) -> ShapeBundle] = &[
     empty_shape,
@@ -53,32 +51,17 @@ pub static SHAPES: &'static [fn(Usage) -> ShapeBundle] = &[
     rust_shape,
 ];
 
-pub static OBJECTS: &'static [fn(Vec2) -> ObjectBundle] = &[
-    empty,
-    square,
-    circle,
-    rect,
-    triangle,
-    heart,
-    rust
-];
+pub static OBJECTS: &'static [fn(Vec2) -> ObjectBundle] =
+    &[empty, square, circle, rect, triangle, heart, rust];
 
-pub static SCALE: &'static [f32] = &[
-    0.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-    0.1
-];
+pub static SCALE: &'static [f32] = &[0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.1];
 
 pub fn init_table() -> Vec<(Vec<(Type, usize)>, Type)> {
     let table = vec![
         (vec![(Square, 2)], Rect),
         // (vec![(Circle, 3)], Heart),
         (vec![(Circle, 2), (Triangle, 1)], Heart),
-        (vec![(Heart, 2)], Rust)
+        (vec![(Heart, 2)], Rust),
     ];
     table
 }
@@ -110,7 +93,7 @@ pub fn square_shape(usage: Usage) -> ShapeBundle {
     };
     let shape = shapes::Rectangle {
         extents: Vec2::new(2.0, 2.0) * 2.0 * RAPIER_TO_LYON * scale,
-        origin: RectangleOrigin::Center
+        origin: RectangleOrigin::Center,
     };
     GeometryBuilder::build_as(
         &shape,
@@ -194,7 +177,7 @@ pub fn rect_shape(usage: Usage) -> ShapeBundle {
     };
     let shape = shapes::Rectangle {
         extents: Vec2::new(4.0, 2.0) * 2.0 * RAPIER_TO_LYON * scale,
-        origin: RectangleOrigin::Center
+        origin: RectangleOrigin::Center,
     };
     GeometryBuilder::build_as(
         &shape,
@@ -241,7 +224,7 @@ fn triangle_shape(usage: Usage) -> ShapeBundle {
     GeometryBuilder::build_as(
         &shapes::SvgPathShape {
             svg_path_string,
-            svg_doc_size_in_px: Vec2::new(0.,0.)
+            svg_doc_size_in_px: Vec2::new(0., 0.),
         },
         DrawMode::Outlined {
             fill_mode: FillMode::color(Color::hsl(200.0, 1.0, 0.6)),
@@ -259,6 +242,7 @@ fn triangle(pos: Vec2) -> ObjectBundle {
     ObjectBundle {
         object: Object {},
         throwable: Throwable(Type::Triangle),
+        health: Health::new(1),
         shape: triangle_shape(Usage::World),
         rigid_body: RigidBodyBundle {
             position: (pos.clone(), 0.0).into(),
@@ -266,8 +250,11 @@ fn triangle(pos: Vec2) -> ObjectBundle {
         },
         collider: ColliderBundle {
             shape: ColliderShape::triangle(
-                point![-1.5, 1.5 * a], point![-1.5, -1.5 * a], point![3.0, 0.0]
-            ).into(),
+                point![-1.5, 1.5 * a],
+                point![-1.5, -1.5 * a],
+                point![3.0, 0.0],
+            )
+            .into(),
             // shape: ColliderShape::cuboid()
             mass_properties: ColliderMassProps::Density(0.4).into(),
             flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
@@ -289,7 +276,7 @@ fn heart_shape(usage: Usage) -> ShapeBundle {
     };
     let shape = shapes::SvgPathShape {
         svg_path_string,
-        svg_doc_size_in_px: Vec2::new(0., 0.)
+        svg_doc_size_in_px: Vec2::new(0., 0.),
     };
     GeometryBuilder::build_as(
         &shape,
@@ -318,11 +305,12 @@ fn heart(pos: Vec2) -> ObjectBundle {
             shape: ColliderShape::compound(vec![
                 (Isometry2::translation(1.5, 1.6), ColliderShape::ball(1.6)),
                 (Isometry2::translation(1.5, -1.6), ColliderShape::ball(1.6)),
-                (Isometry::translation(0.0, 0.0), ColliderShape::triangle(
-                    point![0.6, -3.1], point![0.6, 3.1], point![-3.8, 0.0]
-                ))
-            ]
-            ).into(),
+                (
+                    Isometry::translation(0.0, 0.0),
+                    ColliderShape::triangle(point![0.6, -3.1], point![0.6, 3.1], point![-3.8, 0.0]),
+                ),
+            ])
+            .into(),
             // (15, 16) 16, (-15, 16) 16, [(6, -31), (6, 31), (-38, 0)]
             mass_properties: ColliderMassProps::Density(0.4).into(),
             flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
@@ -344,7 +332,7 @@ fn rust_shape(usage: Usage) -> ShapeBundle {
     };
     let shape = shapes::SvgPathShape {
         svg_path_string,
-        svg_doc_size_in_px: Vec2::new(0., 0.)
+        svg_doc_size_in_px: Vec2::new(0., 0.),
     };
     GeometryBuilder::build_as(
         &shape,

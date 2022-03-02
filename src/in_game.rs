@@ -1,34 +1,33 @@
-use bevy::prelude::*;
 use bevy::core::FixedTimestep;
-use bevy_rapier2d::prelude::*;
+use bevy::prelude::*;
+use bevy::utils::HashMap;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
-use bevy::utils::HashMap;
+use bevy_rapier2d::prelude::*;
 
 use super::{AppState, TIME_STEP};
-use crate::component::*;
 use crate::bundle::*;
 use crate::camera::*;
+use crate::component::*;
+use crate::magic::MagicPlugin;
 use crate::particle::*;
 use crate::shape_mod::*;
-use std::f32::consts::PI;
-use rand::{thread_rng, Rng};
-use crate::magic::MagicPlugin;
 use crate::synthesis::SynthesisPlugin;
+use rand::{thread_rng, Rng};
+use std::f32::consts::PI;
 
 pub struct InGamePlugin;
 
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugin(MagicPlugin)
+        app.add_plugin(MagicPlugin)
             .add_plugin(SynthesisPlugin)
             .init_resource::<ObjectToPlayer>()
             .insert_resource(TrailTimer(Timer::from_seconds(0.01, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                    .with_run_criteria(FixedTimestep::step(TIME_STEP as f64)),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -37,56 +36,64 @@ impl Plugin for InGamePlugin {
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
+                    .with_system(trail_system),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
                     .with_system(collision_detection)
+                    .label("collision_detection"),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
                     .with_system(despawn_dead_entities)
+                    .label("despawn_dead_entities"),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
                     .with_system(update_game_state)
-                    .with_system(trail_system)
+                    .after("despawn_dead_entities"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(move_camera)
                     .label("camera")
-                    .before("general")
+                    .before("general"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("detection")
-                    .with_system(detect_objects_forward)
+                    .with_system(detect_objects_forward),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .after("detection")
                     .before("display")
-                    .with_system(player_grab_system)
+                    .with_system(player_grab_system),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("display")
                     .with_system(update_shape_of_detected_objects)
-                    .with_system(update_health_display)
+                    .with_system(update_health_display),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("animation")
-                    .with_system(animate)
+                    .with_system(animate),
             )
-            .add_system_set(
-                SystemSet::on_exit(AppState::InGame)
-            );
+            .add_system_set(SystemSet::on_exit(AppState::InGame));
     }
 }
 
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EntityInRange {
     pub prev: Option<Entity>,
-    pub cur: Option<Entity>
+    pub cur: Option<Entity>,
 }
 
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EntityInHand {
-    pub entity: Option<Entity>
+    pub entity: Option<Entity>,
 }
 
 #[derive(Default)]
@@ -104,16 +111,13 @@ fn spawn_objects(
     if timer.0.tick(time.delta()).just_finished() {
         if q.iter().len() < 10 {
             let mut rng = thread_rng();
-            let id = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
-            commands.spawn_object(Type::try_from(id).unwrap(), [-50.0, 50.0]);
+            let idx = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
+            commands.spawn_object(BASIC[idx as usize], [-50.0, 50.0]);
         }
     }
 }
 
-fn spawn_player(
-    mut commands: Commands,
-    mut entity_in_hand: ResMut<EntityInHand>
-) {
+fn spawn_player(mut commands: Commands, mut entity_in_hand: ResMut<EntityInHand>) {
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
     let object = commands
         .spawn_object(Type::Square, [10.0, -10.0])
@@ -133,7 +137,14 @@ fn spawn_player(
 
 fn player_rotate_system(
     windows: Res<Windows>,
-    mut player: Query<(&RigidBodyPositionComponent, &mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Player>>
+    mut player: Query<
+        (
+            &RigidBodyPositionComponent,
+            &mut RigidBodyVelocityComponent,
+            &RigidBodyMassPropsComponent,
+        ),
+        With<Player>,
+    >,
 ) {
     let window = windows.get_primary().unwrap();
     if let Some(pos) = window.cursor_position() {
@@ -164,9 +175,15 @@ fn player_grab_system(
                 .local_anchor1(point![0.0, 0.0])
                 .local_anchor2(point![0.0, 0.0])
                 .limit_axis([4.0, 7.0]);
-            commands.spawn().insert(JointBuilderComponent::new(joint, player_entity, object_entity));
+            commands.spawn().insert(JointBuilderComponent::new(
+                joint,
+                player_entity,
+                object_entity,
+            ));
             entity_in_hand.entity = Some(object_entity);
-            commands.entity(object_entity).insert(Grabbed(player_entity));
+            commands
+                .entity(object_entity)
+                .insert(Grabbed(player_entity));
             // object_to_player.0.insert(object_entity, player_entity);
             println!("new joint built with {:?}", object_entity);
         }
@@ -182,8 +199,14 @@ fn player_throw_system(
     mut entity_in_hand: ResMut<EntityInHand>,
     mut q: QuerySet<(
         QueryState<(Entity, &RigidBodyPositionComponent), With<Player>>,
-        QueryState<(&mut RigidBodyVelocityComponent, &RigidBodyMassPropsComponent), With<Throwable>>,
-        QueryState<RigidBodyComponentsQueryPayload>
+        QueryState<
+            (
+                &mut RigidBodyVelocityComponent,
+                &RigidBodyMassPropsComponent,
+            ),
+            With<Throwable>,
+        >,
+        QueryState<RigidBodyComponentsQueryPayload>,
     )>,
 ) {
     if entity_in_hand.entity.is_some() && keyboard_input.pressed(KeyCode::Space) {
@@ -200,7 +223,10 @@ fn player_throw_system(
         for (_h1, h2, _j) in iter {
             let (mut obj_vel, obj_mprops) = object_query.get_mut(h2.entity()).unwrap();
             // object.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
-            obj_vel.apply_impulse(obj_mprops, Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into())
+            obj_vel.apply_impulse(
+                obj_mprops,
+                Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into(),
+            )
         }
 
         let mut rigid_body_set = RigidBodyComponentsSet(q.q2());
@@ -209,7 +235,9 @@ fn player_throw_system(
             &mut island_manager,
             &mut rigid_body_set,
         );
-        commands.entity(entity_in_hand.entity.unwrap()).remove::<Grabbed>();
+        commands
+            .entity(entity_in_hand.entity.unwrap())
+            .remove::<Grabbed>();
         // object_to_player.0.remove(&entity_in_hand.entity.unwrap());
         entity_in_hand.entity = None;
     }
@@ -241,9 +269,9 @@ fn detect_objects_forward(
     let groups = InteractionGroups::all();
     let filter = None;
 
-    if let Some((handle, toi)) = query_pipeline.cast_ray(
-        &collider_set, &ray, max_toi, solid, groups, filter
-    ) {
+    if let Some((handle, toi)) =
+        query_pipeline.cast_ray(&collider_set, &ray, max_toi, solid, groups, filter)
+    {
         if throwable_query.get(handle.entity()).is_ok() {
             let _hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
             entity_in_range.cur = Some(handle.entity());
@@ -254,37 +282,41 @@ fn detect_objects_forward(
 
 fn update_shape_of_detected_objects(
     mut entity_in_range: ResMut<EntityInRange>,
-    mut query: Query<(&mut DrawMode, &Throwable)>
+    mut query: Query<(&mut DrawMode, &Throwable)>,
 ) {
     if entity_in_range.prev != entity_in_range.cur {
         if let Some(entity) = entity_in_range.prev {
             match query.get_mut(entity) {
-                Ok((mode, id)) => {
-                    match mode.into_inner() {
-                        DrawMode::Outlined { fill_mode: _, outline_mode } => {
-                            let c = outline_mode.color.as_hlsa_f32();
-                            *outline_mode = StrokeMode::new(
-                                Color::hsl(c[0], c[1], 0.4).into(), 5.0 * SCALE[id.0 as usize]
-                            );
-                        },
-                        _ => {}
+                Ok((mode, id)) => match mode.into_inner() {
+                    DrawMode::Outlined {
+                        fill_mode: _,
+                        outline_mode,
+                    } => {
+                        let c = outline_mode.color.as_hlsa_f32();
+                        *outline_mode = StrokeMode::new(
+                            Color::hsl(c[0], c[1], 0.4).into(),
+                            5.0 * SCALE[id.0 as usize],
+                        );
                     }
+                    _ => {}
                 },
                 Err(_e) => {}
             }
         }
         if let Some(entity) = entity_in_range.cur {
             match query.get_mut(entity) {
-                Ok((mode, id)) => {
-                    match mode.into_inner() {
-                        DrawMode::Outlined { fill_mode: _, outline_mode } => {
-                            let c = outline_mode.color.as_hlsa_f32();
-                            *outline_mode = StrokeMode::new(
-                                Color::hsl(c[0], c[1], 0.1).into(), 5.0 * SCALE[id.0 as usize]
-                            );
-                        },
-                        _ => {}
+                Ok((mode, id)) => match mode.into_inner() {
+                    DrawMode::Outlined {
+                        fill_mode: _,
+                        outline_mode,
+                    } => {
+                        let c = outline_mode.color.as_hlsa_f32();
+                        *outline_mode = StrokeMode::new(
+                            Color::hsl(c[0], c[1], 0.1).into(),
+                            5.0 * SCALE[id.0 as usize],
+                        );
                     }
+                    _ => {}
                 },
                 Err(_e) => {}
             }
@@ -297,10 +329,14 @@ fn update_shape_of_detected_objects(
 fn player_movement_system(
     app_state: Res<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut player: Query<(&RigidBodyVelocityComponent, &mut RigidBodyForcesComponent, With<Player>)>,
+    mut player: Query<(
+        &RigidBodyVelocityComponent,
+        &mut RigidBodyForcesComponent,
+        With<Player>,
+    )>,
 ) {
     if *app_state.current() == AppState::EndGame {
-        return
+        return;
     }
     let (mut dir_x, mut dir_y) = (0.0, 0.0);
     if keyboard_input.pressed(KeyCode::A) {
@@ -337,9 +373,13 @@ fn collision_detection(
     for contact_event in contact_events.iter() {
         match contact_event {
             ContactEvent::Started(h1, h2) => {
-                // Safety: h1 and h2 should be different
+                /// # Safety: h1 and h2 should be different
                 unsafe {
-                    let (mut health1, dmg1, vel1) : (Mut<Health>, Mut<Dmg>, &RigidBodyVelocityComponent) = q.get_unchecked(h1.entity()).unwrap();
+                    let (mut health1, dmg1, vel1): (
+                        Mut<Health>,
+                        Mut<Dmg>,
+                        &RigidBodyVelocityComponent,
+                    ) = q.get_unchecked(h1.entity()).unwrap();
                     let (mut health2, dmg2, vel2) = q.get_unchecked(h2.entity()).unwrap();
                     let rel_linvel = vel1.linvel - vel2.linvel;
                     if rel_linvel.norm() > 80.0 {
@@ -349,7 +389,7 @@ fn collision_detection(
                     // println!("{:?}", rel_linvel.norm());
                     // println!("{:?}, {:?}", vel1.linvel, vel2.linvel);
                 }
-            },
+            }
             _ => {}
         }
     }
@@ -368,7 +408,7 @@ fn trail_system(
         ev_despawn.send(DespawnParticles {
             pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
             num: 5,
-            color: Color::rgba(0.7, 0.7, 0.7, 1.0)
+            color: Color::rgba(0.7, 0.7, 0.7, 1.0),
         });
     }
 }
@@ -379,15 +419,25 @@ fn despawn_dead_entities(
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
-    q0: Query<(Entity, &Health, &Transform, Option<&Grabbed>, Option<&Player>), Without<Undead>>,
-    q1: Query<RigidBodyComponentsQueryPayload>
+    q0: Query<
+        (
+            Entity,
+            &Health,
+            &Transform,
+            Option<&Grabbed>,
+            Option<&Player>,
+        ),
+        Without<Undead>,
+    >,
+    q1: Query<RigidBodyComponentsQueryPayload>,
 ) {
-    // let q0 = q.q0();
     let mut rigid_body_set = RigidBodyComponentsSet(q1);
     for (e, health, pos, grabbed, player) in q0.iter() {
         if health.hp <= 0 {
-            particle_ev.send(DespawnParticles::from_pos(Vec3::from([
-                pos.translation.x, pos.translation.y, 15.0
+            particle_ev.send(DespawnParticles::new(Vec3::from([
+                pos.translation.x,
+                pos.translation.y,
+                15.0,
             ])));
             if player.is_some() || grabbed.is_some() {
                 let rigid_body_handle: RigidBodyHandle = e.handle();
@@ -398,12 +448,15 @@ fn despawn_dead_entities(
                 );
                 entity_in_hand.entity = None;
             }
+            if player.is_some() {
+                println!("player dead: {:?}", health.hp);
+            }
             commands.entity(e).despawn();
         }
     }
 }
 
-fn update_health_display (
+fn update_health_display(
     app_state: Res<State<AppState>>,
     mut query: Query<&mut Text, With<HealthText>>,
     player_health: Query<&Health, With<Player>>,
@@ -411,7 +464,7 @@ fn update_health_display (
     mut health_bar_component: Query<&mut HealthBarDisplayComponent>,
 ) {
     if *app_state.current() == AppState::EndGame {
-        return
+        return;
     }
     let mut text = query.single_mut();
     let health = player_health.single();
@@ -436,8 +489,10 @@ fn update_game_state(
     match app_state.current() {
         AppState::InGame => {
             let health = player_health.single();
+            println!("game state: {:?}", health.hp);
             if health.hp <= 0 {
                 app_state.set(AppState::EndGame).unwrap();
+                println!("Enter EndGame State!");
             }
         }
         _ => {}

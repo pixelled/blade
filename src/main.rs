@@ -1,26 +1,26 @@
-mod bundle;
-mod component;
-mod in_game;
-mod end_game;
-mod camera;
-mod particle;
-mod synthesis;
-mod shape_mod;
-mod ui;
 mod animation;
+mod bundle;
+mod camera;
+mod component;
+mod end_game;
+mod in_game;
 mod magic;
+mod particle;
+mod shape_mod;
+mod synthesis;
+mod ui;
 
 use bundle::*;
-use in_game::*;
-use end_game::*;
 use camera::*;
+use end_game::*;
+use in_game::*;
 use particle::*;
 use shape_mod::*;
 
-use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
-use bevy_prototype_lyon::prelude::ShapePlugin;
 use crate::animation::AnimationPlugin;
+use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::ShapePlugin;
+use bevy_rapier2d::prelude::*;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 
@@ -41,14 +41,8 @@ fn main() {
         .add_state(AppState::Setup)
         .add_plugin(ParticlePlugin)
         .add_plugin(AnimationPlugin)
-        .add_system_set(
-            SystemSet::on_enter(AppState::Setup)
-                .with_system(setup_game)
-        )
-        .add_system_set(
-            SystemSet::on_update(AppState::Setup)
-                .with_system(start_game)
-        )
+        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_game))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(start_game))
         .add_plugin(InGamePlugin)
         .add_plugin(EndGamePlugin)
         .run();
@@ -61,12 +55,17 @@ enum AppState {
     EndGame,
 }
 
-fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config: ResMut<RapierConfiguration>) {
+fn setup_game(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut config: ResMut<RapierConfiguration>,
+) {
     config.gravity = Vec2::new(0.0, 0.0).into();
     config.scale = RAPIER_TO_BEVY;
 
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d())
-            .insert(MainCamera::default());
+    commands
+        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .insert(MainCamera::default());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(SpriteBundle {
         transform: Transform {
@@ -82,42 +81,54 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     spawn_boundary(&mut commands);
 
     spawn_health_bar(&mut commands);
-    commands.spawn_bundle(HealthTextBundle::new(&asset_server)).insert(HealthText);
+    commands
+        .spawn_bundle(HealthTextBundle::new(&asset_server))
+        .insert(HealthText);
 
-    commands.spawn_bundle(NodeBundle {
-        style: Style {
-            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-            position_type: PositionType::Absolute,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexEnd,
-            ..Default::default()
-        },
-        color: Color::NONE.into(),
-        ..Default::default()
-    }).with_children(|parent| {
-        parent.spawn_bundle(NodeBundle {
+    commands
+        .spawn_bundle(NodeBundle {
             style: Style {
-                size: Size::new(Val::Px(100.0), Val::Px(10.0)),
-                padding: Rect::all(Val::Px(2.0)),
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                position_type: PositionType::Absolute,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexEnd,
                 ..Default::default()
             },
-            color: Color::rgb(0.3, 0.3, 0.3).into(),
+            color: Color::NONE.into(),
             ..Default::default()
-        }).with_children(|parent| {
-            parent.spawn_bundle(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+        })
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(100.0), Val::Px(10.0)),
+                        padding: Rect::all(Val::Px(2.0)),
+                        justify_content: JustifyContent::FlexStart,
+                        align_items: AlignItems::FlexEnd,
+                        ..Default::default()
+                    },
+                    color: Color::rgb(0.3, 0.3, 0.3).into(),
                     ..Default::default()
-                },
-                color: Color::rgb_u8(184, 248, 174).into(),
-                ..Default::default()
-            }).insert(HealthBarDisplay).insert_bundle(square_shape(Usage::World));
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                ..Default::default()
+                            },
+                            color: Color::rgb_u8(184, 248, 174).into(),
+                            ..Default::default()
+                        })
+                        .insert(HealthBarDisplay)
+                        .insert_bundle(square_shape(Usage::World));
+                });
         });
-    });
 
-    commands.insert_resource(EntityInRange { cur: None, prev: None });
+    commands.insert_resource(EntityInRange {
+        cur: None,
+        prev: None,
+    });
     commands.insert_resource(EntityInHand { entity: None });
     commands.insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
 }
@@ -131,18 +142,18 @@ fn spawn_boundary(commands: &mut Commands) {
     let half_n = BOUNDARY_HORIZONTAL / 2.0 + OFFSET_HORIZONTAL;
     commands.spawn_bundle(StaticBundle::new_rect(
         Vec2::new(half_n, OFFSET_VERTICAL),
-        Vec2::new(0.0, half_m)
+        Vec2::new(0.0, half_m),
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
         Vec2::new(half_n, OFFSET_VERTICAL),
-        Vec2::new(0.0, -half_m)
+        Vec2::new(0.0, -half_m),
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
         Vec2::new(OFFSET_HORIZONTAL, half_m),
-        Vec2::new(half_n, 0.0)
+        Vec2::new(half_n, 0.0),
     ));
     commands.spawn_bundle(StaticBundle::new_rect(
         Vec2::new(OFFSET_HORIZONTAL, half_m),
-        Vec2::new(-half_n, 0.0)
+        Vec2::new(-half_n, 0.0),
     ));
 }

@@ -1,13 +1,13 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::*;
+use bevy_rapier2d::prelude::*;
 
 use super::RAPIER_TO_LYON;
 use crate::component::*;
-use crate::synthesis::*;
-use crate::shape_mod::*;
 use crate::magic::*;
+use crate::shape_mod::*;
+use crate::synthesis::*;
 use bevy::ecs::system::EntityCommands;
 
 #[derive(Bundle)]
@@ -31,10 +31,14 @@ impl PlayerBundle {
     pub fn new(x: f32, y: f32) -> Self {
         PlayerBundle {
             player: Player {},
-            health: Health { hp: 100 },
+            health: Health { hp: 10 },
             dmg: Dmg(1),
-            storage: Storage { items: vec![Type::Empty; STORAGE_SIZE] },
-            blueprint: Blueprint { items: vec![Type::Empty; BLUEPRINT_SIZE] },
+            storage: Storage {
+                items: vec![Type::Empty; STORAGE_SIZE],
+            },
+            blueprint: Blueprint {
+                items: vec![Type::Empty; BLUEPRINT_SIZE],
+            },
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 2.0),
@@ -107,8 +111,12 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
         let mut e = self.spawn();
         e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
         match id {
-            Type::Heart => { e.insert(Heal::default()); },
-            Type::Triangle => { e.insert(Sight { radius: 0.0 }); },
+            Type::Heart => {
+                e.insert(Heal::new(1, 0.1));
+            }
+            Type::Triangle => {
+                e.insert(Sight::new(1.5)).insert(Explode::new(20.0, 20));
+            }
             _ => {}
         }
         e
@@ -120,7 +128,7 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
 macro_rules! object {
     ($id:expr, $pos:expr) => {
         OBJECTS[$id as usize](Vec2::from($pos))
-    }
+    };
 }
 
 #[derive(Component)]
@@ -145,7 +153,7 @@ impl StaticBundle {
     pub fn new_rect(half_extents: Vec2, origin: Vec2) -> Self {
         let shape = shapes::Rectangle {
             extents: half_extents.clone() * 2.0 * RAPIER_TO_LYON,
-            origin: RectangleOrigin::Center
+            origin: RectangleOrigin::Center,
         };
         StaticBundle {
             health: Health { hp: 0 },
@@ -220,7 +228,7 @@ impl BarBundle {
 #[derive(Bundle)]
 pub struct HealthTextBundle {
     #[bundle]
-    text: TextBundle
+    text: TextBundle,
 }
 
 impl HealthTextBundle {
@@ -258,7 +266,7 @@ impl HealthTextBundle {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            },
         }
     }
 }
@@ -286,19 +294,21 @@ impl HealthBarDisplayComponent {
 }
 
 pub fn spawn_health_bar(commands: &mut Commands) {
-    commands.spawn_bundle(SpriteBundle {
-        transform: Transform {
-            translation: Vec3::new(0.0, -50.0, 2.0),
-            scale: Vec3::new(350.0, 15.0, 0.0).into(),
+    commands
+        .spawn_bundle(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(0.0, -50.0, 2.0),
+                scale: Vec3::new(350.0, 15.0, 0.0).into(),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb_u8(184, 248, 174),
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        sprite: Sprite {
-            color: Color::rgb_u8(184, 248, 174),
-            ..Default::default()
-        },
-        ..Default::default()
-    }).insert(HealthBarDisplayComponent {
-        cur_percent: 1.0,
-        displayed_percent: 1.0,
-    });
+        })
+        .insert(HealthBarDisplayComponent {
+            cur_percent: 1.0,
+            displayed_percent: 1.0,
+        });
 }

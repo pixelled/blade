@@ -1,32 +1,21 @@
 use bevy::prelude::*;
 
-use super::{AppState};
+use super::AppState;
 use crate::component::*;
 
 pub struct EndGamePlugin;
 
 impl Plugin for EndGamePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_system_set(
-                SystemSet::on_enter(AppState::EndGame)
-                    .with_system(load_end_game_display)
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::EndGame)
-                    .with_system(end_game_input_system)
-            )
-            .add_system_set(
-                SystemSet::on_exit(AppState::EndGame)
-                    .with_system(despawn_end_game_ui)
-            );
+        app.add_system_set(
+            SystemSet::on_enter(AppState::EndGame).with_system(load_end_game_display),
+        )
+        .add_system_set(SystemSet::on_update(AppState::EndGame).with_system(end_game_input_system))
+        .add_system_set(SystemSet::on_exit(AppState::EndGame).with_system(despawn_end_game_ui));
     }
 }
 
-fn load_end_game_display(
-    mut commands: Commands,
-    asset_server: ResMut<AssetServer>
-) {
+fn load_end_game_display(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -66,10 +55,7 @@ fn end_game_input_system(
     }
 }
 
-fn despawn_end_game_ui(
-    mut commands: Commands,
-    queries: Query<Entity, With<EndGameUI>>
-) {
+fn despawn_end_game_ui(mut commands: Commands, queries: Query<Entity, With<EndGameUI>>) {
     for entity in queries.iter() {
         commands.entity(entity).despawn_recursive();
     }

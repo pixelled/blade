@@ -11,15 +11,13 @@ pub struct MainCamera {
 
 impl Default for MainCamera {
     fn default() -> Self {
-        MainCamera {
-            speed_z: 0.01,
-        }
+        MainCamera { speed_z: 0.01 }
     }
 }
 
 pub fn move_camera(
     player: Query<&RigidBodyPositionComponent, With<Player>>,
-    mut camera: Query<(&mut Transform, &MainCamera)>
+    mut camera: Query<(&mut Transform, &MainCamera)>,
 ) {
     let position = player.single();
     let player_translation = &position.position.translation;
@@ -27,7 +25,7 @@ pub fn move_camera(
     let camera_translation = camera_transform.translation;
     let dir = Vec2::new(
         player_translation.x * RAPIER_TO_BEVY - camera_translation.x,
-        player_translation.y * RAPIER_TO_BEVY - camera_translation.y
+        player_translation.y * RAPIER_TO_BEVY - camera_translation.y,
     );
     camera_transform.translation.x += dir.x * 0.5;
     camera_transform.translation.y += dir.y * 0.5;
