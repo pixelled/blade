@@ -13,6 +13,7 @@ pub struct Object;
 pub struct Throwable(pub Type);
 
 #[derive(Component)]
+#[derive(Debug)]
 pub struct Grabbed(pub Entity);
 
 #[derive(Component)]

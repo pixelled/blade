@@ -14,6 +14,7 @@ use bevy::ecs::system::EntityCommands;
 pub struct PlayerBundle {
     player: Player,
     health: Health,
+    dmg: Dmg,
     storage: Storage,
     blueprint: Blueprint,
 
@@ -31,6 +32,7 @@ impl PlayerBundle {
         PlayerBundle {
             player: Player {},
             health: Health { hp: 100 },
+            dmg: Dmg(1),
             storage: Storage { items: vec![Type::Empty; STORAGE_SIZE] },
             blueprint: Blueprint { items: vec![Type::Empty; BLUEPRINT_SIZE] },
             sprite: SpriteBundle {
@@ -82,7 +84,7 @@ impl Default for ObjectBundle {
         ObjectBundle {
             object: Object {},
             throwable: Throwable(Type::Empty),
-            health: Health { hp: 10 },
+            health: Health { hp: 2 },
             dmg: Dmg(1),
             shape: empty_shape(Usage::World),
             rigid_body: RigidBodyBundle {
@@ -121,8 +123,14 @@ macro_rules! object {
     }
 }
 
+#[derive(Component)]
+pub struct Undead;
+
 #[derive(Bundle)]
 pub struct StaticBundle {
+    health: Health,
+    dmg: Dmg,
+
     #[bundle]
     shape: ShapeBundle,
     #[bundle]
@@ -130,6 +138,7 @@ pub struct StaticBundle {
     #[bundle]
     collider: ColliderBundle,
     sync: RigidBodyPositionSync,
+    undead: Undead,
 }
 
 impl StaticBundle {
@@ -139,6 +148,8 @@ impl StaticBundle {
             origin: RectangleOrigin::Center
         };
         StaticBundle {
+            health: Health { hp: 0 },
+            dmg: Dmg(1),
             shape: GeometryBuilder::build_as(
                 &shape,
                 DrawMode::Outlined {
@@ -160,12 +171,16 @@ impl StaticBundle {
                 ..Default::default()
             },
             sync: RigidBodyPositionSync::Discrete,
+            undead: Undead {},
         }
     }
 }
 
 #[derive(Bundle)]
 pub struct BarBundle {
+    health: Health,
+    dmg: Dmg,
+
     #[bundle]
     sprite: SpriteBundle,
     #[bundle]
@@ -178,6 +193,8 @@ pub struct BarBundle {
 impl BarBundle {
     pub fn new(x: f32, y: f32, asset_server: &Res<AssetServer>) -> Self {
         BarBundle {
+            health: Health { hp: 0 },
+            dmg: Dmg(1),
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: Vec3::new(x, y, 1.0),

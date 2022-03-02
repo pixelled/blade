@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::AppState;
 use crate::component::*;
 use crate::camera::*;
-use crate::particle::ParticleEvent;
+use crate::particle::DespawnParticles;
 
 pub struct MagicPlugin;
 
@@ -63,7 +63,7 @@ fn heal_system(
 }
 
 fn heal_animation_system(
-    mut ev_particle: EventWriter<ParticleEvent>,
+    mut ev_particle: EventWriter<DespawnParticles>,
     object_query: Query<(&Heal, &Grabbed)>,
     player_query: Query<&Transform, With<Player>>,
 ) {
@@ -71,7 +71,7 @@ fn heal_animation_system(
         if heal.timer.just_finished() {
             let player_entity = grabbed.0;
             let player_pos = player_query.get(player_entity).unwrap();
-            ev_particle.send(ParticleEvent {
+            ev_particle.send(DespawnParticles {
                 pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 20.0]),
                 num: 3,
                 color: Color::rgb_u8(184, 248, 174)

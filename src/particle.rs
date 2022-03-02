@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
+use bevy::ecs::system::Resource;
 
 // Reference: https://github.com/cvhariharan/smoke-rs
 
@@ -8,11 +9,11 @@ pub struct ParticlePlugin;
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<ParticleEvent>()
+            .add_event::<DespawnParticles>()
             // .add_startup_system(setup_particles)
             .add_system_set(
                 SystemSet::new()
-                    .with_system(spawn_particles)
+                    .with_system(spawn_particles::<DespawnParticles>)
                     .with_system(update_positions)
                     .with_system(apply_forces)
                     .with_system(kill_particles)
@@ -32,15 +33,21 @@ struct ParticleVel(Vec3);
 #[derive(Component)]
 struct ParticleAcc(Vec3);
 
-pub struct ParticleEvent {
+pub trait ParticleEvent {
+    fn from_pos(pos: Vec3) -> Self;
+
+    fn spawn(&self, commands: &mut Commands);
+}
+
+pub struct DespawnParticles {
     pub pos: Vec3,
     pub num: usize,
     pub color: Color
 }
 
-impl Default for ParticleEvent {
+impl Default for DespawnParticles {
     fn default() -> Self {
-        ParticleEvent {
+        DespawnParticles {
             pos: Vec3::ZERO,
             num: 1,
             color: Color::rgba(0.7, 0.7, 0.7, 1.0)
@@ -48,12 +55,51 @@ impl Default for ParticleEvent {
     }
 }
 
-fn spawn_particles(
+impl ParticleEvent for DespawnParticles {
+    fn from_pos(pos: Vec3) -> Self {
+        DespawnParticles {
+            pos,
+            num: 50,
+            color: Color::rgba(0.2, 0.2, 0.2, 1.0),
+        }
+    }
+
+    fn spawn(&self, commands: &mut Commands){
+        let mut rng = thread_rng();
+        for _ in 0..self.num {
+            let dir = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+            commands
+                .spawn_bundle(
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: self.color,
+                            ..Default::default()
+                        },
+                        transform: Transform {
+                            translation: Vec3::new(
+                                self.pos.x + rng.gen_range(-1.0..1.0),
+                                self.pos.y + rng.gen_range(-1.0..1.0),
+                                self.pos.z
+                            ),
+                            scale: Vec3::new(10.0, 10.0, 0.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }
+                )
+                .insert(Lifetime(255))
+                .insert(ParticleVel(dir.clone() * 2.0))
+                .insert(ParticleAcc(Vec3::ZERO));
+        }
+    }
+}
+
+fn spawn_particles<T: ParticleEvent + Resource>(
     mut commands: Commands,
-    mut ev_despawn: EventReader<ParticleEvent>,
+    mut ev: EventReader<T>,
 ) {
-    for ev in ev_despawn.iter() {
-        spawn_particle_group(&mut commands, &ev);
+    for ev in ev.iter() {
+        ev.spawn(&mut commands);
     }
 }
 
@@ -83,33 +129,4 @@ fn kill_particles(
 
 fn apply_forces() {
 
-}
-
-fn spawn_particle_group(commands: &mut Commands, ev: &ParticleEvent) {
-    let mut rng = thread_rng();
-    for _ in 0..ev.num {
-        commands
-            .spawn_bundle(
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: ev.color,
-                        ..Default::default()
-                    },
-                    transform: Transform {
-                            translation: Vec3::new(
-                                ev.pos.x + rng.gen_range(-1.0..1.0),
-                                ev.pos.y + rng.gen_range(-1.0..1.0),
-                                ev.pos.z
-                            ),
-                            scale: Vec3::new(10.0, 10.0, 0.0),
-                            ..Default::default()
-                        },
-                    ..Default::default()
-                }
-            )
-            .insert(Lifetime(255))
-            .insert(ParticleVel(Vec3::new(
-                rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0)))
-            .insert(ParticleAcc(Vec3::new(0.0, 0.0, 0.0)));
-    }
 }

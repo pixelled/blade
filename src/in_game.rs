@@ -38,6 +38,7 @@ impl Plugin for InGamePlugin {
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
                     .with_system(collision_detection)
+                    .with_system(despawn_dead_entities)
                     .with_system(update_game_state)
                     .with_system(trail_system)
             )
@@ -71,7 +72,6 @@ impl Plugin for InGamePlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
-                    .with_system(despawn_dead_entities)
             );
     }
 }
@@ -117,6 +117,7 @@ fn spawn_player(
     let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
     let object = commands
         .spawn_object(Type::Square, [10.0, -10.0])
+        .insert(Grabbed(player))
         .id();
     let axis = Vector::x_axis();
     let joint = PrismaticJoint::new(axis)
@@ -154,6 +155,7 @@ fn player_grab_system(
     mut entity_in_hand: ResMut<EntityInHand>,
     player_query: Query<Entity, With<Player>>,
 ) {
+    // println!("{:?}", entity_in_hand.entity);
     if entity_in_hand.entity.is_none() && buttons.pressed(MouseButton::Left) {
         if let Some(object_entity) = entity_in_range.cur {
             let player_entity = player_query.single();
@@ -330,34 +332,22 @@ fn player_movement_system(
 
 fn collision_detection(
     mut contact_events: EventReader<ContactEvent>,
-    entity_in_hand: Res<EntityInHand>,
-    mut health_queries: Query<&mut Health>,
-    player_query: Query<&Player>,
+    q: Query<(&mut Health, &mut Dmg, &RigidBodyVelocityComponent)>,
 ) {
     for contact_event in contact_events.iter() {
         match contact_event {
             ContactEvent::Started(h1, h2) => {
-                // TODO: optimization
-                if player_query.get(h1.entity()).is_ok() {
-                    if let Some(e) = entity_in_hand.entity {
-                        if e == h2.entity() {
-                            continue;
-                        }
+                // Safety: h1 and h2 should be different
+                unsafe {
+                    let (mut health1, dmg1, vel1) : (Mut<Health>, Mut<Dmg>, &RigidBodyVelocityComponent) = q.get_unchecked(h1.entity()).unwrap();
+                    let (mut health2, dmg2, vel2) = q.get_unchecked(h2.entity()).unwrap();
+                    let rel_linvel = vel1.linvel - vel2.linvel;
+                    if rel_linvel.norm() > 80.0 {
+                        health1.hp -= dmg2.0;
+                        health2.hp -= dmg1.0;
                     }
-                }
-                if player_query.get(h2.entity()).is_ok() {
-                    if let Some(e) = entity_in_hand.entity {
-                        if e == h1.entity() {
-                            continue;
-                        }
-                    }
-                }
-
-                if let Ok(mut health) = health_queries.get_mut(h1.entity()) {
-                    health.hp -= 5;
-                }
-                if let Ok(mut health) = health_queries.get_mut(h2.entity()) {
-                    health.hp -= 5;
+                    // println!("{:?}", rel_linvel.norm());
+                    // println!("{:?}, {:?}", vel1.linvel, vel2.linvel);
                 }
             },
             _ => {}
@@ -368,14 +358,14 @@ fn collision_detection(
 struct TrailTimer(Timer);
 
 fn trail_system(
-    mut ev_despawn: EventWriter<ParticleEvent>,
+    mut ev_despawn: EventWriter<DespawnParticles>,
     time: Res<Time>,
     mut timer: ResMut<TrailTimer>,
     q: Query<&Transform, With<Player>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
         let player_pos = q.single();
-        ev_despawn.send(ParticleEvent {
+        ev_despawn.send(DespawnParticles {
             pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
             num: 5,
             color: Color::rgba(0.7, 0.7, 0.7, 1.0)
@@ -385,34 +375,31 @@ fn trail_system(
 
 fn despawn_dead_entities(
     mut commands: Commands,
-    mut ev_despawn: EventWriter<ParticleEvent>,
+    mut particle_ev: EventWriter<DespawnParticles>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
-    mut q: QuerySet<(
-        QueryState<(Entity, &Health, &Transform), With<Player>>,
-        QueryState<RigidBodyComponentsQueryPayload>
-    )>,
+    q0: Query<(Entity, &Health, &Transform, Option<&Grabbed>, Option<&Player>), Without<Undead>>,
+    q1: Query<RigidBodyComponentsQueryPayload>
 ) {
-    let (player_entity, player_health, player_pos): (Entity, &Health, _) = q.q0().single();
-    if player_health.hp <= 0 {
-        ev_despawn.send(ParticleEvent {
-            pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
-            num: 10,
-            color: Color::rgba(0.7, 0.7, 0.7, 1.0)
-        });
-
-        let rigid_body_handle: RigidBodyHandle = player_entity.handle();
-
-        let mut rigid_body_set = RigidBodyComponentsSet(q.q1());
-        joint_set.remove_joints_attached_to_rigid_body(
-            rigid_body_handle,
-            &mut island_manager,
-            &mut rigid_body_set,
-        );
-
-        commands.entity(player_entity).despawn();
-        entity_in_hand.entity = None;
+    // let q0 = q.q0();
+    let mut rigid_body_set = RigidBodyComponentsSet(q1);
+    for (e, health, pos, grabbed, player) in q0.iter() {
+        if health.hp <= 0 {
+            particle_ev.send(DespawnParticles::from_pos(Vec3::from([
+                pos.translation.x, pos.translation.y, 15.0
+            ])));
+            if player.is_some() || grabbed.is_some() {
+                let rigid_body_handle: RigidBodyHandle = e.handle();
+                joint_set.remove_joints_attached_to_rigid_body(
+                    rigid_body_handle,
+                    &mut island_manager,
+                    &mut rigid_body_set,
+                );
+                entity_in_hand.entity = None;
+            }
+            commands.entity(e).despawn();
+        }
     }
 }
 

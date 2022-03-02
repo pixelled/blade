@@ -78,7 +78,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>, mut config
     });
     commands.spawn_object(Type::Triangle, [5.0, 5.0]);
     commands.spawn_object(Type::Heart, [-5.0, 5.0]);
-    commands.spawn_bundle(BarBundle::new(0.0,0.0, &asset_server));
+    // commands.spawn_bundle(BarBundle::new(0.0, 0.0, &asset_server));
     spawn_boundary(&mut commands);
 
     spawn_health_bar(&mut commands);
