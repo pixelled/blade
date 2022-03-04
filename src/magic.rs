@@ -20,6 +20,7 @@ impl Plugin for MagicPlugin {
                 .with_system(magic_timer_system::<Frozen>)
                 .with_system(freeze_src_system)
                 .with_system(frozen_system)
+                .with_system(frozen_animation_system)
                 .with_system(magic_timer_system::<Burned>)
                 .with_system(burn_src_system)
                 .with_system(burned_system)
@@ -87,7 +88,7 @@ fn heal_system(object_query: Query<(&Heal, &Grabbed)>, mut player_query: Query<&
 }
 
 fn heal_animation_system(
-    mut ev_particle: EventWriter<DespawnParticles>,
+    mut ev_particle: EventWriter<ScatteringParticles>,
     object_query: Query<(&Heal, &Grabbed)>,
     player_query: Query<&Transform, With<Player>>,
 ) {
@@ -95,10 +96,11 @@ fn heal_animation_system(
         if heal.timer.just_finished() {
             let player_entity = grabbed.0;
             let player_pos = player_query.get(player_entity).unwrap();
-            ev_particle.send(DespawnParticles {
-                pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 20.0]),
+            ev_particle.send(ScatteringParticles {
+                pos: Vec3::new(player_pos.translation.x, player_pos.translation.y, 20.0),
                 num: 3,
                 color: Color::rgb_u8(184, 248, 174),
+                ..Default::default()
             });
         }
     }
@@ -163,10 +165,12 @@ impl MagicWithTimer for Frozen {
     }
 }
 
+/// # Bug in Rapier: contact pairs sometimes contain despawned entities.Must check validity before use.
 fn freeze_src_system(
     mut commands: Commands,
     narrow_phase: Res<NarrowPhase>,
     freeze_src_query: Query<(Entity, &FreezeSource)>,
+    frozenable_query: Query<(), Or<(With<Player>, With<Object>)>>,
 ) {
     for (e, freeze_src) in freeze_src_query.iter() {
         for contact_pair in narrow_phase.contacts_with(e.handle()) {
@@ -177,9 +181,15 @@ fn freeze_src_system(
                     contact_pair.collider1
                 };
                 let other_e = other_collider.entity();
-                commands
-                    .entity(other_e)
-                    .insert(freeze_src.generate_effect());
+
+                if frozenable_query.get(other_e).is_ok() {
+                    if freeze_src_query.get(other_e).is_err() {
+                        // println!("src: {:?}, frozen: {:?}", e, other_e);
+                        commands
+                            .entity(other_e)
+                            .insert(freeze_src.generate_effect());
+                    }
+                }
             }
         }
     }
@@ -189,6 +199,21 @@ fn frozen_system(mut frozen_query: Query<(&mut RigidBodyVelocityComponent, &Froz
     for (mut vel, frozen) in frozen_query.iter_mut() {
         vel.linvel *= frozen.scale;
         vel.angvel *= frozen.scale;
+    }
+}
+
+fn frozen_animation_system(
+    mut ev_particle: EventWriter<ScatteringParticles>,
+    frozen_query: Query<&Transform, With<Frozen>>,
+) {
+    for pos in frozen_query.iter() {
+        ev_particle.send(ScatteringParticles {
+            pos: Vec3::new(pos.translation.x, pos.translation.y, 21.0),
+            num: 1,
+            color: Color::rgb_u8(165, 242, 243),
+            vel_scale: 3.0,
+            ..Default::default()
+        });
     }
 }
 
@@ -234,6 +259,7 @@ impl MagicWithTimer for Burned {
     }
 }
 
+/// # Bug in Rapier: contact pairs sometimes contain despawned entities.Must check validity before use.
 fn burn_src_system(
     mut commands: Commands,
     narrow_phase: Res<NarrowPhase>,
@@ -248,24 +274,27 @@ fn burn_src_system(
                     contact_pair.collider1
                 };
                 let other_e = other_collider.entity();
-                commands.entity(other_e).insert(burn_src.generate_effect());
+                if burn_src_query.get(other_e).is_err() {
+                    commands.entity(other_e).insert(burn_src.generate_effect());
+                }
             }
         }
     }
 }
 
 fn burned_system(
-    mut ev_particle: EventWriter<BurnedParticles>,
+    mut ev_particle: EventWriter<ScatteringParticles>,
     mut burned_query: Query<(&Transform, &mut Health, &mut Burned)>,
 ) {
-    for (pos, mut health, mut burned) in burned_query.iter_mut() {
+    for (pos, mut health, burned) in burned_query.iter_mut() {
         if burned.interval.just_finished() {
             health.hp -= burned.dmg;
-            ev_particle.send(BurnedParticles::new(Vec3::new(
-                pos.translation.x,
-                pos.translation.y,
-                21.0,
-            )));
+            ev_particle.send(ScatteringParticles {
+                pos: Vec3::new(pos.translation.x, pos.translation.y, 21.0),
+                num: 20,
+                color: Color::RED,
+                ..Default::default()
+            });
         }
     }
 }
@@ -300,6 +329,7 @@ impl MagicWithTimer for Paralyzed {
     }
 }
 
+/// # Bug in Rapier: contact pairs sometimes contain despawned entities.Must check validity before use.
 fn paralyze_src_system(
     mut commands: Commands,
     narrow_phase: Res<NarrowPhase>,
@@ -332,15 +362,17 @@ fn paralyzed_system(mut paralyzed_query: Query<&mut RigidBodyVelocityComponent, 
 }
 
 fn paralyzed_animation_system(
-    mut ev_particle: EventWriter<ParalyzedParticles>,
+    mut ev_particle: EventWriter<ScatteringParticles>,
     paralyzed_query: Query<&Transform, With<Paralyzed>>,
 ) {
     for pos in paralyzed_query.iter() {
-        ev_particle.send(ParalyzedParticles::new(Vec3::from([
-            pos.translation.x,
-            pos.translation.y,
-            20.0,
-        ])));
+        ev_particle.send(ScatteringParticles {
+            pos: Vec3::new(pos.translation.x, pos.translation.y, 20.0),
+            num: 1,
+            color: Color::YELLOW,
+            vel_scale: 3.0,
+            ..Default::default()
+        });
     }
 }
 

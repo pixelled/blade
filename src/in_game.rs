@@ -397,24 +397,25 @@ fn collision_detection(
 struct TrailTimer(Timer);
 
 fn trail_system(
-    mut ev_despawn: EventWriter<DespawnParticles>,
+    mut ev_particles: EventWriter<ScatteringParticles>,
     time: Res<Time>,
     mut timer: ResMut<TrailTimer>,
     q: Query<&Transform, With<Player>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
         let player_pos = q.single();
-        ev_despawn.send(DespawnParticles {
-            pos: Vec3::from([player_pos.translation.x, player_pos.translation.y, 1.0]),
+        ev_particles.send(ScatteringParticles {
+            pos: Vec3::new(player_pos.translation.x, player_pos.translation.y, 1.0),
             num: 5,
             color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+            ..Default::default()
         });
     }
 }
 
 fn despawn_dead_entities(
     mut commands: Commands,
-    mut particle_ev: EventWriter<DespawnParticles>,
+    mut particle_ev: EventWriter<ScatteringParticles>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -430,14 +431,17 @@ fn despawn_dead_entities(
     >,
     q1: Query<RigidBodyComponentsQueryPayload>,
 ) {
+    // println!("indespawn");
     let mut rigid_body_set = RigidBodyComponentsSet(q1);
     for (e, health, pos, grabbed, player) in q0.iter() {
         if health.hp <= 0 {
-            particle_ev.send(DespawnParticles::new(Vec3::from([
-                pos.translation.x,
-                pos.translation.y,
-                15.0,
-            ])));
+            particle_ev.send(ScatteringParticles {
+                pos: Vec3::new(pos.translation.x, pos.translation.y, 15.0),
+                num: 50,
+                color: Color::rgba(0.2, 0.2, 0.2, 1.0),
+                vel_scale: 3.0,
+                ..Default::default()
+            });
             if player.is_some() || grabbed.is_some() {
                 let rigid_body_handle: RigidBodyHandle = e.handle();
                 joint_set.remove_joints_attached_to_rigid_body(
@@ -450,6 +454,7 @@ fn despawn_dead_entities(
             if player.is_some() {
                 println!("player dead: {:?}", health.hp);
             }
+            // println!("Despawn {:?}", e);
             commands.entity(e).despawn();
         }
     }

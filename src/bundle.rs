@@ -112,7 +112,8 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
         e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
         match id {
             Type::Heart => {
-                e.insert(Heal::new(1, 0.1));
+                e.insert(Heal::new(1, 0.1))
+                    .insert(FreezeSource::new(0.97, 2.0));
             }
             Type::Square => {
                 e.insert(ParalyzeSource::new(1.0));
