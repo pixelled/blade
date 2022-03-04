@@ -5,6 +5,7 @@ use crate::camera::*;
 use crate::component::*;
 use crate::particle::*;
 use crate::AppState;
+use bevy::utils::Duration;
 
 pub struct MagicPlugin;
 
@@ -14,8 +15,19 @@ impl Plugin for MagicPlugin {
             SystemSet::on_update(AppState::InGame)
                 .with_system(heal_timer_system)
                 .with_system(heal_system)
+                .with_system(heal_animation_system)
                 .with_system(sight_system)
-                .with_system(heal_animation_system),
+                .with_system(magic_timer_system::<Frozen>)
+                .with_system(freeze_src_system)
+                .with_system(frozen_system)
+                .with_system(magic_timer_system::<Burned>)
+                .with_system(burn_src_system)
+                .with_system(burned_system)
+                .with_system(magic_timer_system::<Paralyzed>)
+                .with_system(paralyze_src_system)
+                .with_system(paralyzed_system)
+                .with_system(paralyzed_animation_system)
+                .before("despawn_dead_entities"),
         )
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
@@ -26,7 +38,23 @@ impl Plugin for MagicPlugin {
     }
 }
 
-/// Heal when timer is finished. Use negative hp for self-damage.
+trait MagicWithTimer {
+    fn tick(&mut self, duration: Duration) -> &Timer;
+}
+
+fn magic_timer_system<T: MagicWithTimer + Component>(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut magic_query: Query<(Entity, &mut T)>,
+) {
+    for (e, mut magic) in magic_query.iter_mut() {
+        if magic.tick(time.delta()).just_finished() {
+            commands.entity(e).remove::<T>();
+        };
+    }
+}
+
+/// Heal: heal holder everytime `timer` is finished. May use negative hp for self-damage.
 #[derive(Component)]
 pub struct Heal {
     pub hp: i32,
@@ -39,38 +67,6 @@ impl Heal {
             hp,
             timer: Timer::from_seconds(interval, true),
         }
-    }
-}
-
-#[derive(Component)]
-pub struct Sight {
-    pub scale: f32,
-}
-
-impl Sight {
-    pub fn new(scale: f32) -> Self {
-        Sight { scale }
-    }
-}
-
-#[derive(Component)]
-pub struct Freeze {}
-
-#[derive(Component)]
-pub struct Burn {}
-
-#[derive(Component)]
-pub struct Paralyze {}
-
-#[derive(Component)]
-pub struct Explode {
-    pub radius: f32,
-    pub dmg: i32,
-}
-
-impl Explode {
-    pub fn new(radius: f32, dmg: i32) -> Self {
-        Explode { radius, dmg }
     }
 }
 
@@ -108,6 +104,18 @@ fn heal_animation_system(
     }
 }
 
+/// Sight: expand visual range
+#[derive(Component)]
+pub struct Sight {
+    pub scale: f32,
+}
+
+impl Sight {
+    pub fn new(scale: f32) -> Self {
+        Sight { scale }
+    }
+}
+
 fn sight_system(
     mut camera: Query<(&mut OrthographicProjection, &MainCamera)>,
     object_query: Query<&Sight, With<Grabbed>>,
@@ -121,16 +129,232 @@ fn sight_system(
     }
 }
 
-fn freeze_system() {
-    todo!()
+/// Apply `Frozen` upon hitting players and objects.
+#[derive(Component)]
+pub struct FreezeSource {
+    scale: f32,
+    duration: f32,
 }
 
-fn burn_system() {
-    todo!()
+impl FreezeSource {
+    pub fn new(scale: f32, duration: f32) -> Self {
+        FreezeSource { scale, duration }
+    }
+
+    pub fn generate_effect(&self) -> Frozen {
+        Frozen {
+            scale: self.scale,
+            duration: Timer::from_seconds(self.duration, false),
+        }
+    }
 }
 
-fn paralyze_system() {
-    todo!()
+/// Slows down speed during some period.
+/// Frozen entities don't apply `Frozen` upon collision (things become very complex if applied).
+#[derive(Component)]
+pub struct Frozen {
+    scale: f32,
+    duration: Timer,
+}
+
+impl MagicWithTimer for Frozen {
+    fn tick(&mut self, duration: Duration) -> &Timer {
+        self.duration.tick(duration)
+    }
+}
+
+fn freeze_src_system(
+    mut commands: Commands,
+    narrow_phase: Res<NarrowPhase>,
+    freeze_src_query: Query<(Entity, &FreezeSource)>,
+) {
+    for (e, freeze_src) in freeze_src_query.iter() {
+        for contact_pair in narrow_phase.contacts_with(e.handle()) {
+            if contact_pair.has_any_active_contact {
+                let other_collider = if contact_pair.collider1 == e.handle() {
+                    contact_pair.collider2
+                } else {
+                    contact_pair.collider1
+                };
+                let other_e = other_collider.entity();
+                commands
+                    .entity(other_e)
+                    .insert(freeze_src.generate_effect());
+            }
+        }
+    }
+}
+
+fn frozen_system(mut frozen_query: Query<(&mut RigidBodyVelocityComponent, &Frozen)>) {
+    for (mut vel, frozen) in frozen_query.iter_mut() {
+        vel.linvel *= frozen.scale;
+        vel.angvel *= frozen.scale;
+    }
+}
+
+/// Apply `Burned` upon hitting players and objects.
+#[derive(Component)]
+pub struct BurnSource {
+    dmg: i32,
+    duration: f32,
+    interval: f32,
+}
+
+impl BurnSource {
+    pub fn new(dmg: i32, duration: f32, interval: f32) -> Self {
+        BurnSource {
+            dmg,
+            duration,
+            interval,
+        }
+    }
+
+    pub fn generate_effect(&self) -> Burned {
+        Burned {
+            dmg: self.dmg,
+            duration: Timer::from_seconds(self.duration, false),
+            interval: Timer::from_seconds(self.interval, true),
+        }
+    }
+}
+
+/// Lose a set amount of hp during some period.
+/// Burned entities don't apply `Burned` upon collision (things become very complex if applied).
+#[derive(Component)]
+pub struct Burned {
+    dmg: i32,
+    duration: Timer,
+    interval: Timer,
+}
+
+impl MagicWithTimer for Burned {
+    fn tick(&mut self, duration: Duration) -> &Timer {
+        self.interval.tick(duration);
+        self.duration.tick(duration)
+    }
+}
+
+fn burn_src_system(
+    mut commands: Commands,
+    narrow_phase: Res<NarrowPhase>,
+    burn_src_query: Query<(Entity, &BurnSource)>,
+) {
+    for (e, burn_src) in burn_src_query.iter() {
+        for contact_pair in narrow_phase.contacts_with(e.handle()) {
+            if contact_pair.has_any_active_contact {
+                let other_collider = if contact_pair.collider1 == e.handle() {
+                    contact_pair.collider2
+                } else {
+                    contact_pair.collider1
+                };
+                let other_e = other_collider.entity();
+                commands.entity(other_e).insert(burn_src.generate_effect());
+            }
+        }
+    }
+}
+
+fn burned_system(
+    mut ev_particle: EventWriter<BurnedParticles>,
+    mut burned_query: Query<(&Transform, &mut Health, &mut Burned)>,
+) {
+    for (pos, mut health, mut burned) in burned_query.iter_mut() {
+        if burned.interval.just_finished() {
+            health.hp -= burned.dmg;
+            ev_particle.send(BurnedParticles::new(Vec3::new(
+                pos.translation.x,
+                pos.translation.y,
+                21.0,
+            )));
+        }
+    }
+}
+
+/// Apply `Paralyzed` upon hitting players but not upon hitting objects.
+#[derive(Component)]
+pub struct ParalyzeSource {
+    pub duration: f32,
+}
+
+impl ParalyzeSource {
+    pub fn new(duration: f32) -> Self {
+        ParalyzeSource { duration }
+    }
+
+    pub fn generate_effect(&self) -> Paralyzed {
+        Paralyzed {
+            duration: Timer::from_seconds(self.duration, false),
+        }
+    }
+}
+
+/// Unable to move for some period if paralyzed.
+#[derive(Component)]
+pub struct Paralyzed {
+    duration: Timer,
+}
+
+impl MagicWithTimer for Paralyzed {
+    fn tick(&mut self, duration: Duration) -> &Timer {
+        self.duration.tick(duration)
+    }
+}
+
+fn paralyze_src_system(
+    mut commands: Commands,
+    narrow_phase: Res<NarrowPhase>,
+    paralyze_src_query: Query<(Entity, &ParalyzeSource)>,
+    player_query: Query<(), With<Player>>,
+) {
+    for (e, paralyze_src) in paralyze_src_query.iter() {
+        for contact_pair in narrow_phase.contacts_with(e.handle()) {
+            if contact_pair.has_any_active_contact {
+                let other_collider = if contact_pair.collider1 == e.handle() {
+                    contact_pair.collider2
+                } else {
+                    contact_pair.collider1
+                };
+                let other_e = other_collider.entity();
+                if player_query.get(other_e).is_ok() {
+                    commands
+                        .entity(other_e)
+                        .insert(paralyze_src.generate_effect());
+                }
+            }
+        }
+    }
+}
+
+fn paralyzed_system(mut paralyzed_query: Query<&mut RigidBodyVelocityComponent, Added<Paralyzed>>) {
+    for mut vel in paralyzed_query.iter_mut() {
+        vel.linvel = Vec2::ZERO.into();
+    }
+}
+
+fn paralyzed_animation_system(
+    mut ev_particle: EventWriter<ParalyzedParticles>,
+    paralyzed_query: Query<&Transform, With<Paralyzed>>,
+) {
+    for pos in paralyzed_query.iter() {
+        ev_particle.send(ParalyzedParticles::new(Vec3::from([
+            pos.translation.x,
+            pos.translation.y,
+            20.0,
+        ])));
+    }
+}
+
+/// Explode: deal `dmg` to all entities in a circle of `radius`
+#[derive(Component)]
+pub struct Explode {
+    pub radius: f32,
+    pub dmg: i32,
+}
+
+impl Explode {
+    pub fn new(radius: f32, dmg: i32) -> Self {
+        Explode { radius, dmg }
+    }
 }
 
 fn explode_system(
@@ -151,7 +375,7 @@ fn explode_system(
         if health.hp <= 0 {
             // Animation
             ev_explosion.send(ExplodeParticles::new(
-                Vec3::new(pos.translation.x, pos.translation.y, 20.0),
+                Vec3::new(pos.translation.x, pos.translation.y, 25.0),
                 explode.radius,
             ));
             // Explosion on surrounding objects

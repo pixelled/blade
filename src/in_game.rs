@@ -9,7 +9,7 @@ use super::{AppState, TIME_STEP};
 use crate::bundle::*;
 use crate::camera::*;
 use crate::component::*;
-use crate::magic::MagicPlugin;
+use crate::magic::*;
 use crate::particle::*;
 use crate::shape_mod::*;
 use crate::synthesis::SynthesisPlugin;
@@ -73,13 +73,7 @@ impl Plugin for InGamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .label("display")
-                    .with_system(update_shape_of_detected_objects)
-                    .with_system(update_health_display),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .label("animation")
-                    .with_system(animate),
+                    .with_system(update_shape_of_detected_objects),
             )
             .add_system_set(SystemSet::on_exit(AppState::InGame));
     }
@@ -143,18 +137,19 @@ fn player_rotate_system(
             &mut RigidBodyVelocityComponent,
             &RigidBodyMassPropsComponent,
         ),
-        With<Player>,
+        (With<Player>, Without<Paralyzed>),
     >,
 ) {
     let window = windows.get_primary().unwrap();
     if let Some(pos) = window.cursor_position() {
-        let (player_pos, mut player_vel, _player_mprops) = player.single_mut();
-        use nalgebra::UnitComplex;
-        let size = Vec2::new(window.width() as f32, window.height() as f32);
-        let pos = pos - size / 2.0;
-        let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
-        let rot = player_pos.position.rotation.angle_to(&cursor_rot);
-        player_vel.angvel = rot / PI * 20.0;
+        for (player_pos, mut player_vel, _player_mprops) in player.iter_mut() {
+            use nalgebra::UnitComplex;
+            let size = Vec2::new(window.width() as f32, window.height() as f32);
+            let pos = pos - size / 2.0;
+            let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
+            let rot = player_pos.position.rotation.angle_to(&cursor_rot);
+            player_vel.angvel = rot / PI * 20.0;
+        }
     }
 }
 
@@ -329,11 +324,10 @@ fn update_shape_of_detected_objects(
 fn player_movement_system(
     app_state: Res<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut player: Query<(
-        &RigidBodyVelocityComponent,
-        &mut RigidBodyForcesComponent,
-        With<Player>,
-    )>,
+    mut player: Query<
+        (&RigidBodyVelocityComponent, &mut RigidBodyForcesComponent),
+        (With<Player>, Without<Paralyzed>),
+    >,
 ) {
     if *app_state.current() == AppState::EndGame {
         return;
@@ -351,21 +345,24 @@ fn player_movement_system(
     if keyboard_input.pressed(KeyCode::S) {
         dir_y -= 1.0;
     }
-    let (player_vel, mut player_forces, _) = player.single_mut();
-    let player_vel: Vec2 = player_vel.linvel.into();
+    for (player_vel, mut player_forces) in player.iter_mut() {
+        let player_vel: Vec2 = player_vel.linvel.into();
 
-    let dir_scale = 2000.0;
+        let dir_scale = 2000.0;
 
-    if player_vel.length() > 0.01 {
-        let friction_dir = player_vel.normalize();
-        let friction = friction_dir * 600.0;
-        // println!("{}", player_vel.linvel);
-        player_forces.force = (Vec2::new(dir_x * dir_scale, dir_y * dir_scale) - friction).into();
-    } else {
-        player_forces.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
+        if player_vel.length() > 0.01 {
+            let friction_dir = player_vel.normalize();
+            let friction = friction_dir * 600.0;
+            // println!("{}", player_vel.linvel);
+            player_forces.force =
+                (Vec2::new(dir_x * dir_scale, dir_y * dir_scale) - friction).into();
+        } else {
+            player_forces.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
+        }
     }
 }
 
+/// # Safety: h1 and h2 should be different
 fn collision_detection(
     mut contact_events: EventReader<ContactEvent>,
     q: Query<(&mut Health, &mut Dmg, &RigidBodyVelocityComponent)>,
@@ -373,21 +370,23 @@ fn collision_detection(
     for contact_event in contact_events.iter() {
         match contact_event {
             ContactEvent::Started(h1, h2) => {
-                /// # Safety: h1 and h2 should be different
                 unsafe {
-                    let (mut health1, dmg1, vel1): (
-                        Mut<Health>,
-                        Mut<Dmg>,
-                        &RigidBodyVelocityComponent,
-                    ) = q.get_unchecked(h1.entity()).unwrap();
-                    let (mut health2, dmg2, vel2) = q.get_unchecked(h2.entity()).unwrap();
-                    let rel_linvel = vel1.linvel - vel2.linvel;
-                    if rel_linvel.norm() > 80.0 {
-                        health1.hp -= dmg2.0;
-                        health2.hp -= dmg1.0;
+                    // Todo: check why h1 exists but h1.entity() doesn't exist
+                    let query1 = q.get_unchecked(h1.entity());
+                    let query2 = q.get_unchecked(h2.entity());
+                    if query1.is_ok() && query2.is_ok() {
+                        let (mut health1, dmg1, vel1): (
+                            Mut<Health>,
+                            Mut<Dmg>,
+                            &RigidBodyVelocityComponent,
+                        ) = query1.unwrap();
+                        let (mut health2, dmg2, vel2) = query2.unwrap();
+                        let rel_linvel = vel1.linvel - vel2.linvel;
+                        if rel_linvel.norm() > 80.0 {
+                            health1.hp -= dmg2.0;
+                            health2.hp -= dmg1.0;
+                        }
                     }
-                    // println!("{:?}", rel_linvel.norm());
-                    // println!("{:?}, {:?}", vel1.linvel, vel2.linvel);
                 }
             }
             _ => {}
@@ -456,32 +455,6 @@ fn despawn_dead_entities(
     }
 }
 
-fn update_health_display(
-    app_state: Res<State<AppState>>,
-    mut query: Query<&mut Text, With<HealthText>>,
-    player_health: Query<&Health, With<Player>>,
-    mut health_bar: Query<&mut Style, With<HealthBarDisplay>>,
-    mut health_bar_component: Query<&mut HealthBarDisplayComponent>,
-) {
-    if *app_state.current() == AppState::EndGame {
-        return;
-    }
-    let mut text = query.single_mut();
-    let health = player_health.single();
-    text.sections[1].value = format!("{}", health.hp);
-
-    let mut health_bar = health_bar.single_mut();
-    health_bar.size = Size::new(Val::Percent(health.hp as f32), Val::Percent(80.0));
-
-    let mut health_bar = health_bar_component.single_mut();
-    health_bar.cur_percent = health.hp as f32;
-}
-
-fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDisplayComponent)>) {
-    let (transform, mut health_bar) = health_bar_component.single_mut();
-    health_bar.animate(transform);
-}
-
 fn update_game_state(
     mut app_state: ResMut<State<AppState>>,
     player_health: Query<&Health, With<Player>>,
@@ -489,10 +462,8 @@ fn update_game_state(
     match app_state.current() {
         AppState::InGame => {
             let health = player_health.single();
-            println!("game state: {:?}", health.hp);
             if health.hp <= 0 {
                 app_state.set(AppState::EndGame).unwrap();
-                println!("Enter EndGame State!");
             }
         }
         _ => {}

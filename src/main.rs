@@ -80,51 +80,6 @@ fn setup_game(
     // commands.spawn_bundle(BarBundle::new(0.0, 0.0, &asset_server));
     spawn_boundary(&mut commands);
 
-    spawn_health_bar(&mut commands);
-    commands
-        .spawn_bundle(HealthTextBundle::new(&asset_server))
-        .insert(HealthText);
-
-    commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::FlexEnd,
-                ..Default::default()
-            },
-            color: Color::NONE.into(),
-            ..Default::default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(100.0), Val::Px(10.0)),
-                        padding: Rect::all(Val::Px(2.0)),
-                        justify_content: JustifyContent::FlexStart,
-                        align_items: AlignItems::FlexEnd,
-                        ..Default::default()
-                    },
-                    color: Color::rgb(0.3, 0.3, 0.3).into(),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                ..Default::default()
-                            },
-                            color: Color::rgb_u8(184, 248, 174).into(),
-                            ..Default::default()
-                        })
-                        .insert(HealthBarDisplay)
-                        .insert_bundle(square_shape(Usage::World));
-                });
-        });
-
     commands.insert_resource(EntityInRange {
         cur: None,
         prev: None,

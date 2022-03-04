@@ -31,7 +31,7 @@ impl PlayerBundle {
     pub fn new(x: f32, y: f32) -> Self {
         PlayerBundle {
             player: Player {},
-            health: Health { hp: 10 },
+            health: Health { hp: 100 },
             dmg: Dmg(1),
             storage: Storage {
                 items: vec![Type::Empty; STORAGE_SIZE],
@@ -114,8 +114,14 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
             Type::Heart => {
                 e.insert(Heal::new(1, 0.1));
             }
-            Type::Triangle => {
+            Type::Square => {
+                e.insert(ParalyzeSource::new(1.0));
+            }
+            Type::Circle => {
                 e.insert(Sight::new(1.5)).insert(Explode::new(20.0, 20));
+            }
+            Type::Triangle => {
+                e.insert(BurnSource::new(1, 5.0, 0.5));
             }
             _ => {}
         }
@@ -223,92 +229,4 @@ impl BarBundle {
             sync: RigidBodyPositionSync::Discrete,
         }
     }
-}
-
-#[derive(Bundle)]
-pub struct HealthTextBundle {
-    #[bundle]
-    text: TextBundle,
-}
-
-impl HealthTextBundle {
-    pub fn new(asset_server: &Res<AssetServer>) -> Self {
-        HealthTextBundle {
-            text: TextBundle {
-                text: Text {
-                    sections: vec![
-                        TextSection {
-                            value: "Health: ".to_string(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
-                                color: Color::rgb(0.5, 0.5, 1.0),
-                            },
-                        },
-                        TextSection {
-                            value: "".to_string(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                                font_size: 40.0,
-                                color: Color::rgb(1.0, 0.5, 0.5),
-                            },
-                        },
-                    ],
-                    ..Default::default()
-                },
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    position: Rect {
-                        top: Val::Px(5.0),
-                        left: Val::Px(5.0),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct HealthBarDisplay;
-
-#[derive(Component)]
-pub struct HealthText;
-
-#[derive(Component)]
-pub struct HealthBarDisplayComponent {
-    pub cur_percent: f32,
-    displayed_percent: f32,
-}
-
-impl HealthBarDisplayComponent {
-    pub fn animate(&mut self, mut transform: Mut<Transform>) {
-        if self.displayed_percent != self.cur_percent {
-            self.displayed_percent = self.cur_percent.max(self.displayed_percent - 0.9);
-        }
-        let new_x = 350.0 * self.displayed_percent / 100.0;
-        transform.scale = Vec3::new(new_x, 15.0, 0.0).into();
-    }
-}
-
-pub fn spawn_health_bar(commands: &mut Commands) {
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, -50.0, 2.0),
-                scale: Vec3::new(350.0, 15.0, 0.0).into(),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb_u8(184, 248, 174),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(HealthBarDisplayComponent {
-            cur_percent: 1.0,
-            displayed_percent: 1.0,
-        });
 }

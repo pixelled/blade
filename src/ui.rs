@@ -19,6 +19,7 @@ impl Plugin for UIPlugin {
             .add_system_set(
                 SystemSet::on_enter(AppState::Setup)
                     .with_system(init_ui)
+                    .with_system(init_health_bar)
                     .with_system(setup_storage_display)
                     .with_system(setup_blueprint_display),
             )
@@ -32,12 +33,105 @@ impl Plugin for UIPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(update_health_display)
+                    .with_system(animate),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
                     .with_system(set_recipe_global_transform)
                     .with_system(set_recipe_hovered_global_transform)
                     .with_system(set_storage_global_transform)
                     .with_system(set_blueprint_global_transform)
                     .after("camera"),
             );
+    }
+}
+
+#[derive(Component)]
+pub struct HealthBarDisplay;
+
+#[derive(Component)]
+pub struct HealthText;
+
+#[derive(Component)]
+pub struct HealthBarDisplayComponent {
+    pub cur_percent: f32,
+    displayed_percent: f32,
+}
+
+impl HealthBarDisplayComponent {
+    pub fn animate(&mut self, mut transform: Mut<Transform>) {
+        if self.displayed_percent != self.cur_percent {
+            self.displayed_percent = self.cur_percent.max(self.displayed_percent - 0.9);
+        }
+        let new_x = 350.0 * self.displayed_percent / 100.0;
+        transform.scale = Vec3::new(new_x, 15.0, 0.0).into();
+    }
+}
+
+pub fn spawn_health_bar(commands: &mut Commands) {
+    commands
+        .spawn_bundle(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(0.0, -50.0, 2.0),
+                scale: Vec3::new(350.0, 15.0, 0.0).into(),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb_u8(184, 248, 174),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(HealthBarDisplayComponent {
+            cur_percent: 1.0,
+            displayed_percent: 1.0,
+        });
+}
+
+#[derive(Bundle)]
+pub struct HealthTextBundle {
+    #[bundle]
+    text: TextBundle,
+}
+
+impl HealthTextBundle {
+    pub fn new(asset_server: &Res<AssetServer>) -> Self {
+        HealthTextBundle {
+            text: TextBundle {
+                text: Text {
+                    sections: vec![
+                        TextSection {
+                            value: "Health: ".to_string(),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.5, 0.5, 1.0),
+                            },
+                        },
+                        TextSection {
+                            value: "".to_string(),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(1.0, 0.5, 0.5),
+                            },
+                        },
+                    ],
+                    ..Default::default()
+                },
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        top: Val::Px(5.0),
+                        left: Val::Px(5.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        }
     }
 }
 
@@ -119,6 +213,79 @@ fn init_box(extents: Vec2, pos: Vec2) -> ShapeBundle {
             ..Default::default()
         },
     )
+}
+
+pub fn init_health_bar(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                position_type: PositionType::Absolute,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexEnd,
+                ..Default::default()
+            },
+            color: Color::NONE.into(),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(100.0), Val::Px(10.0)),
+                        padding: Rect::all(Val::Px(2.0)),
+                        justify_content: JustifyContent::FlexStart,
+                        align_items: AlignItems::FlexEnd,
+                        ..Default::default()
+                    },
+                    color: Color::rgb(0.3, 0.3, 0.3).into(),
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                ..Default::default()
+                            },
+                            color: Color::rgb_u8(184, 248, 174).into(),
+                            ..Default::default()
+                        })
+                        .insert(HealthBarDisplay)
+                        .insert_bundle(square_shape(Usage::World));
+                });
+        });
+
+    spawn_health_bar(&mut commands);
+    commands
+        .spawn_bundle(HealthTextBundle::new(&asset_server))
+        .insert(HealthText);
+}
+
+fn update_health_display(
+    app_state: Res<State<AppState>>,
+    mut query: Query<&mut Text, With<HealthText>>,
+    player_health: Query<&Health, With<Player>>,
+    mut health_bar: Query<&mut Style, With<HealthBarDisplay>>,
+    mut health_bar_component: Query<&mut HealthBarDisplayComponent>,
+) {
+    if *app_state.current() == AppState::EndGame {
+        return;
+    }
+    let mut text = query.single_mut();
+    let health = player_health.single();
+    text.sections[1].value = format!("{}", health.hp);
+
+    let mut health_bar = health_bar.single_mut();
+    health_bar.size = Size::new(Val::Percent(health.hp as f32), Val::Percent(80.0));
+
+    let mut health_bar = health_bar_component.single_mut();
+    health_bar.cur_percent = health.hp as f32;
+}
+
+fn animate(mut health_bar_component: Query<(&mut Transform, &mut HealthBarDisplayComponent)>) {
+    let (transform, mut health_bar) = health_bar_component.single_mut();
+    health_bar.animate(transform);
 }
 
 pub fn init_ui(mut commands: Commands, asset_server: ResMut<AssetServer>) {
@@ -531,9 +698,7 @@ fn update_storage_display(
     mut q: Query<(&mut Children, &mut StorageUI)>,
     mut transform_query: Query<&mut Transform, With<StorageShape>>,
 ) {
-    println!("Update Storage");
     let storage = storage.single();
-    // println!("{:?}", storage_in_hand);
     if storage_in_hand.cur != storage_in_hand.prev {
         if let Some(i) = storage_in_hand.prev {
             let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();

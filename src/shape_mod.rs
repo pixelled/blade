@@ -112,6 +112,7 @@ fn square(pos: Vec2) -> ObjectBundle {
     ObjectBundle {
         object: Object {},
         throwable: Throwable(Type::Square),
+        health: Health::new(10),
         shape: square_shape(Usage::World),
         rigid_body: RigidBodyBundle {
             position: (pos.clone(), 0.0).into(),

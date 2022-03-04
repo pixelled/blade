@@ -11,11 +11,15 @@ pub struct ParticlePlugin;
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<DespawnParticles>()
+            .add_event::<BurnedParticles>()
+            .add_event::<ParalyzedParticles>()
             .add_event::<ExplodeParticles>()
             // .add_startup_system(setup_particles)
             .add_system_set(
                 SystemSet::new()
                     .with_system(spawn_particles::<DespawnParticles>)
+                    .with_system(spawn_particles::<BurnedParticles>)
+                    .with_system(spawn_particles::<ParalyzedParticles>)
                     .with_system(spawn_particles::<ExplodeParticles>)
                     .with_system(update_positions)
                     .with_system(apply_forces)
@@ -51,7 +55,7 @@ pub struct DespawnParticles {
 }
 
 impl DespawnParticles {
-    pub(crate) fn new(pos: Vec3) -> Self {
+    pub fn new(pos: Vec3) -> Self {
         DespawnParticles {
             pos,
             num: 50,
@@ -61,6 +65,96 @@ impl DespawnParticles {
 }
 
 impl ParticleEvent for DespawnParticles {
+    fn spawn(&self, commands: &mut Commands) {
+        let mut rng = thread_rng();
+        for _ in 0..self.num {
+            let dir = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+            commands
+                .spawn_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: self.color,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::new(
+                            self.pos.x + rng.gen_range(-1.0..1.0),
+                            self.pos.y + rng.gen_range(-1.0..1.0),
+                            self.pos.z,
+                        ),
+                        scale: Vec3::new(10.0, 10.0, 0.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(Lifetime(255))
+                .insert(ParticleVel(dir.clone() * 3.0))
+                .insert(ParticleAcc(Vec3::ZERO));
+        }
+    }
+}
+
+pub struct BurnedParticles {
+    pub pos: Vec3,
+    pub num: usize,
+    pub color: Color,
+}
+
+impl BurnedParticles {
+    pub fn new(pos: Vec3) -> Self {
+        BurnedParticles {
+            pos,
+            num: 10,
+            color: Color::RED,
+        }
+    }
+}
+
+impl ParticleEvent for BurnedParticles {
+    fn spawn(&self, commands: &mut Commands) {
+        let mut rng = thread_rng();
+        for _ in 0..self.num {
+            let dir = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+            commands
+                .spawn_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: self.color,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::new(
+                            self.pos.x + rng.gen_range(-1.0..1.0),
+                            self.pos.y + rng.gen_range(-1.0..1.0),
+                            self.pos.z,
+                        ),
+                        scale: Vec3::new(10.0, 10.0, 0.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(Lifetime(255))
+                .insert(ParticleVel(dir.clone() * 1.0))
+                .insert(ParticleAcc(Vec3::ZERO));
+        }
+    }
+}
+
+pub struct ParalyzedParticles {
+    pub pos: Vec3,
+    pub num: usize,
+    pub color: Color,
+}
+
+impl ParalyzedParticles {
+    pub fn new(pos: Vec3) -> Self {
+        ParalyzedParticles {
+            pos,
+            num: 1,
+            color: Color::YELLOW,
+        }
+    }
+}
+
+impl ParticleEvent for ParalyzedParticles {
     fn spawn(&self, commands: &mut Commands) {
         let mut rng = thread_rng();
         for _ in 0..self.num {
@@ -165,10 +259,7 @@ fn kill_particles(mut commands: Commands, mut query: Query<(Entity, &mut Lifetim
     }
 }
 
-fn scale_modifier_system(
-    mut commands: Commands,
-    mut query: Query<(&mut Transform, &ScaleModifier)>,
-) {
+fn scale_modifier_system(mut query: Query<(&mut Transform, &ScaleModifier)>) {
     for (mut transform, scale_modifier) in query.iter_mut() {
         transform.scale -= scale_modifier.0;
     }
