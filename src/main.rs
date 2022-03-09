@@ -34,17 +34,22 @@ const OFFSET_HORIZONTAL: f32 = 50.0;
 const OFFSET_VERTICAL: f32 = 50.0;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    #[cfg(target_arch = "wasm32")]
+    {
+        app.add_system(bevy_web_resizer::web_resize_system);
+    }
+    app.add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_state(AppState::Setup)
+        .add_plugin(CameraPlugin)
         .add_plugin(ParticlePlugin)
         .add_plugin(AnimationPlugin)
-        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_game))
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(start_game))
         .add_plugin(InGamePlugin)
         .add_plugin(EndGamePlugin)
+        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_game))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(start_game))
         .run();
 }
 
@@ -62,10 +67,6 @@ fn setup_game(
 ) {
     config.gravity = Vec2::new(0.0, 0.0).into();
     config.scale = RAPIER_TO_BEVY;
-
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(MainCamera::default());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(SpriteBundle {
         transform: Transform {

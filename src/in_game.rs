@@ -7,7 +7,6 @@ use bevy_rapier2d::prelude::*;
 
 use super::{AppState, TIME_STEP};
 use crate::bundle::*;
-use crate::camera::*;
 use crate::component::*;
 use crate::magic::*;
 use crate::particle::*;
@@ -52,12 +51,6 @@ impl Plugin for InGamePlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_game_state)
                     .after("despawn_dead_entities"),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .with_system(move_camera)
-                    .label("camera")
-                    .before("general"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -325,7 +318,10 @@ fn player_movement_system(
     app_state: Res<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut player: Query<
-        (&RigidBodyVelocityComponent, &mut RigidBodyForcesComponent),
+        (
+            &mut RigidBodyVelocityComponent,
+            &mut RigidBodyForcesComponent,
+        ),
         (With<Player>, Without<Paralyzed>),
     >,
 ) {
@@ -333,31 +329,29 @@ fn player_movement_system(
         return;
     }
     let (mut dir_x, mut dir_y) = (0.0, 0.0);
-    if keyboard_input.pressed(KeyCode::A) {
-        dir_x -= 1.0;
+    let mut pressed = false;
+    if keyboard_input.any_pressed([KeyCode::W, KeyCode::A, KeyCode::S, KeyCode::D]) {
+        if keyboard_input.pressed(KeyCode::A) {
+            dir_x -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::D) {
+            dir_x += 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::W) {
+            dir_y += 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::S) {
+            dir_y -= 1.0;
+        }
+        pressed = true;
     }
-    if keyboard_input.pressed(KeyCode::D) {
-        dir_x += 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::W) {
-        dir_y += 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        dir_y -= 1.0;
-    }
-    for (player_vel, mut player_forces) in player.iter_mut() {
-        let player_vel: Vec2 = player_vel.linvel.into();
+    for (mut player_vel, mut player_forces) in player.iter_mut() {
+        let dir_scale = 3000.0;
 
-        let dir_scale = 2000.0;
-
-        if player_vel.length() > 0.01 {
-            let friction_dir = player_vel.normalize();
-            let friction = friction_dir * 600.0;
-            // println!("{}", player_vel.linvel);
-            player_forces.force =
-                (Vec2::new(dir_x * dir_scale, dir_y * dir_scale) - friction).into();
-        } else {
+        if pressed {
             player_forces.force = Vec2::new(dir_x * dir_scale, dir_y * dir_scale).into();
+        } else {
+            player_vel.linvel *= 0.9;
         }
     }
 }

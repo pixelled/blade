@@ -14,3 +14,4 @@ phf = { version = "0.10", features = ["macros"] }
 itertools = "0.10"
 interpolation = "0.2.0"
 num_enum = "0.5.6"
+bevy-web-resizer = "0.1.0"
