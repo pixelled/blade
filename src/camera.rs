@@ -44,18 +44,18 @@ pub fn move_camera(
     player: Query<&RigidBodyPositionComponent, With<Player>>,
     mut camera: Query<(&mut Transform, &MainCamera)>,
 ) {
-    let position = player.single();
-    let player_pos = &position.position.translation;
+    let player_pos = player.single();
+    let player_translation = &player_pos.position.translation;
     let (mut camera_transform, _main_camera): (Mut<Transform>, &MainCamera) = camera.single_mut();
     let camera_translation = camera_transform.translation;
-    // let dir = Vec2::new(
-    //     player_translation.x * RAPIER_TO_BEVY - camera_translation.x,
-    //     player_translation.y * RAPIER_TO_BEVY - camera_translation.y,
-    // );
-    // camera_transform.translation.x += dir.x * 0.5;
-    // camera_transform.translation.y += dir.y * 0.5;
-    camera_transform.translation.x = player_pos.x * RAPIER_TO_BEVY;
-    camera_transform.translation.y = player_pos.y * RAPIER_TO_BEVY;
+    let dir = Vec2::new(
+        player_translation.x * RAPIER_TO_BEVY - camera_translation.x,
+        player_translation.y * RAPIER_TO_BEVY - camera_translation.y,
+    );
+    camera_transform.translation.x += dir.x * 0.5;
+    camera_transform.translation.y += dir.y * 0.5;
+    // camera_transform.translation.x = player_pos.x * RAPIER_TO_BEVY;
+    // camera_transform.translation.y = player_pos.y * RAPIER_TO_BEVY;
 }
 
 pub fn scale_camera(

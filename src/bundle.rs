@@ -27,45 +27,6 @@ pub struct PlayerBundle {
     sync: RigidBodyPositionSync,
 }
 
-impl PlayerBundle {
-    pub fn new(x: f32, y: f32) -> Self {
-        PlayerBundle {
-            player: Player {},
-            health: Health { hp: 100 },
-            dmg: Dmg(1),
-            storage: Storage {
-                items: vec![Type::Empty; STORAGE_SIZE],
-            },
-            blueprint: Blueprint {
-                items: vec![Type::Empty; BLUEPRINT_SIZE],
-            },
-            sprite: SpriteBundle {
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, 2.0),
-                    scale: Vec3::new(40.0, 40.0, 0.0),
-                    ..Default::default()
-                },
-                sprite: Sprite {
-                    color: Color::rgb(0.7, 0.7, 0.7),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            rigid_body: RigidBodyBundle {
-                position: Vec2::new(x, y).into(),
-                ..Default::default()
-            },
-            collider: ColliderBundle {
-                shape: ColliderShape::cuboid(2.0, 2.0).into(),
-                // mass_properties: ColliderMassProps::Density(1.0).into(),
-                flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
-                ..Default::default()
-            },
-            sync: RigidBodyPositionSync::Discrete,
-        }
-    }
-}
-
 #[derive(Bundle)]
 pub struct ObjectBundle {
     pub object: Object,
@@ -103,10 +64,81 @@ impl Default for ObjectBundle {
 }
 
 pub trait CommandsSpawner<'w, 's> {
+    fn spawn_player<'a>(
+        &'a mut self,
+        asset_server: &AssetServer,
+        x: f32,
+        y: f32,
+    ) -> EntityCommands<'w, 's, 'a>;
+
     fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a>;
 }
 
 impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
+    fn spawn_player<'a>(
+        &'a mut self,
+        asset_server: &AssetServer,
+        x: f32,
+        y: f32,
+    ) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn();
+        e.insert_bundle(PlayerBundle {
+            player: Player {},
+            health: Health { hp: 100 },
+            dmg: Dmg(1),
+            storage: Storage {
+                items: vec![Type::Empty; STORAGE_SIZE],
+            },
+            blueprint: Blueprint {
+                items: vec![Type::Empty; BLUEPRINT_SIZE],
+            },
+            sprite: SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, 5.0),
+                    scale: Vec3::new(0.95, 0.95, 0.0),
+                    ..Default::default()
+                },
+                texture: asset_server.get_handle("player/body-line.png"),
+                sprite: Sprite {
+                    color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+                    ..Default::default()
+                },
+                // sprite: Sprite {
+                //     color: Color::rgb(0.7, 0.7, 0.7),
+                //     ..Default::default()
+                // },
+                ..Default::default()
+            },
+            rigid_body: RigidBodyBundle {
+                position: Vec2::new(x, y).into(),
+                ..Default::default()
+            },
+            collider: ColliderBundle {
+                shape: ColliderShape::cuboid(2.0, 2.0).into(),
+                // mass_properties: ColliderMassProps::Density(1.0).into(),
+                flags: (ActiveEvents::CONTACT_EVENTS | ActiveEvents::INTERSECTION_EVENTS).into(),
+                ..Default::default()
+            },
+            sync: RigidBodyPositionSync::Discrete,
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(0.0, -4.0, 4.0),
+                    // scale: Vec3::new(1.1, 1.1, 0.0),
+                    ..Default::default()
+                },
+                texture: asset_server.get_handle("player/body-shadow.png"),
+                sprite: Sprite {
+                    color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+        });
+        e
+    }
+
     fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
         e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));

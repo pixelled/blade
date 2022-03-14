@@ -18,7 +18,10 @@ use particle::*;
 use shape_mod::*;
 
 use crate::animation::AnimationPlugin;
+use bevy::asset::LoadState;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy::render::render_resource::FilterMode;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_rapier2d::prelude::*;
 
@@ -40,6 +43,9 @@ fn main() {
         app.add_system(bevy_web_resizer::web_resize_system);
     }
     app.add_plugins(DefaultPlugins)
+        .insert_resource(Msaa::default())
+        // .add_plugin(LogDiagnosticsPlugin::default())
+        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(ShapePlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_state(AppState::Setup)
@@ -49,7 +55,9 @@ fn main() {
         .add_plugin(InGamePlugin)
         .add_plugin(EndGamePlugin)
         .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_game))
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(start_game))
+        .add_system_set(
+            SystemSet::on_update(AppState::Setup).with_system(start_game), // .with_system(modify_texture_filter)
+        )
         .run();
 }
 
@@ -63,8 +71,12 @@ enum AppState {
 fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
     mut config: ResMut<RapierConfiguration>,
 ) {
+    // let handles = asset_server.load_folder("player").unwrap();
+    asset_server.load_untyped("player/body-line.png");
+    asset_server.load_untyped("player/body-shadow.png");
     config.gravity = Vec2::new(0.0, 0.0).into();
     config.scale = RAPIER_TO_BEVY;
     commands.spawn_bundle(UiCameraBundle::default());
@@ -87,6 +99,40 @@ fn setup_game(
     });
     commands.insert_resource(EntityInHand { entity: None });
     commands.insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
+}
+
+struct TextureState {
+    paths: Vec<(&'static str, bool)>,
+}
+
+impl Default for TextureState {
+    fn default() -> Self {
+        TextureState {
+            paths: vec![
+                ("bg.png", false),
+                ("player/body-line.png", false),
+                ("player/body-shadow.png", false),
+            ],
+        }
+    }
+}
+
+fn modify_texture_filter(
+    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+    mut state: Local<TextureState>,
+) {
+    for (path, loaded) in state.paths.iter_mut() {
+        if !*loaded {
+            let h: Handle<Image> = asset_server.get_handle(*path);
+            if let Some(image) = images.get_mut(h) {
+                image.sampler_descriptor.min_filter = FilterMode::Linear;
+                image.sampler_descriptor.mag_filter = FilterMode::Linear;
+                *loaded = true;
+                println!("{} loaded", path);
+            }
+        }
+    }
 }
 
 fn start_game(mut app_state: ResMut<State<AppState>>) {

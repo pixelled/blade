@@ -9,6 +9,7 @@ use super::{AppState, TIME_STEP};
 use crate::bundle::*;
 use crate::component::*;
 use crate::magic::*;
+use crate::modify_texture_filter;
 use crate::particle::*;
 use crate::shape_mod::*;
 use crate::synthesis::SynthesisPlugin;
@@ -35,7 +36,8 @@ impl Plugin for InGamePlugin {
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
-                    .with_system(trail_system),
+                    .with_system(modify_texture_filter)
+                    .with_system(player_shadow_system), // .with_system(trail_system)
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -104,8 +106,14 @@ fn spawn_objects(
     }
 }
 
-fn spawn_player(mut commands: Commands, mut entity_in_hand: ResMut<EntityInHand>) {
-    let player = commands.spawn_bundle(PlayerBundle::new(0.0, -10.0)).id();
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut entity_in_hand: ResMut<EntityInHand>,
+) {
+    let player = commands
+        .spawn_player(asset_server.as_ref(), 0.0, -10.0)
+        .id();
     let object = commands
         .spawn_object(Type::Square, [10.0, -10.0])
         .insert(Grabbed(player))
@@ -120,6 +128,18 @@ fn spawn_player(mut commands: Commands, mut entity_in_hand: ResMut<EntityInHand>
         .insert(JointBuilderComponent::new(joint, player, object));
     entity_in_hand.entity = Some(object);
     println!("spawned {:?} {:?}", player, object);
+}
+
+fn player_shadow_system(
+    player_query: Query<(Entity, &Children), With<Player>>,
+    mut transform_query: Query<&mut Transform, With<Sprite>>,
+) {
+    for (parent, children) in player_query.iter() {
+        let parent_transform = transform_query.get(parent).unwrap();
+        for child in children.iter() {
+            let mut child_transform = transform_query.get_mut(*child).unwrap();
+        }
+    }
 }
 
 fn player_rotate_system(
