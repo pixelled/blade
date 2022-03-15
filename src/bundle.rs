@@ -8,6 +8,7 @@ use crate::component::*;
 use crate::magic::*;
 use crate::shape_mod::*;
 use crate::synthesis::*;
+use crate::SpriteAtlasHandle;
 use bevy::ecs::system::EntityCommands;
 
 #[derive(Bundle)]
@@ -19,7 +20,7 @@ pub struct PlayerBundle {
     blueprint: Blueprint,
 
     #[bundle]
-    sprite: SpriteBundle,
+    sprite: SpriteSheetBundle,
     #[bundle]
     rigid_body: RigidBodyBundle,
     #[bundle]
@@ -36,7 +37,7 @@ pub struct ObjectBundle {
     pub dmg: Dmg,
 
     #[bundle]
-    pub shape: ShapeBundle,
+    pub sprite: SpriteSheetBundle,
     #[bundle]
     pub rigid_body: RigidBodyBundle,
     #[bundle]
@@ -51,7 +52,7 @@ impl Default for ObjectBundle {
             throwable: Throwable(Type::Empty),
             health: Health { hp: 2 },
             dmg: Dmg(1),
-            shape: empty_shape(Usage::World),
+            sprite: SpriteSheetBundle::default(),
             rigid_body: RigidBodyBundle {
                 ..Default::default()
             },
@@ -66,18 +67,30 @@ impl Default for ObjectBundle {
 pub trait CommandsSpawner<'w, 's> {
     fn spawn_player<'a>(
         &'a mut self,
-        asset_server: &AssetServer,
+        sprite_atlas_handle: &SpriteAtlasHandle,
         x: f32,
         y: f32,
     ) -> EntityCommands<'w, 's, 'a>;
 
-    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a>;
+    fn spawn_sprite<'a>(
+        &'a mut self,
+        sprite_atlas_handle: &SpriteAtlasHandle,
+        id: Type,
+        pos: [f32; 2],
+    ) -> EntityCommands<'w, 's, 'a>;
+
+    fn spawn_object<'a>(
+        &'a mut self,
+        sprite_atlas_handle: &SpriteAtlasHandle,
+        id: Type,
+        pos: [f32; 2],
+    ) -> EntityCommands<'w, 's, 'a>;
 }
 
 impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
     fn spawn_player<'a>(
         &'a mut self,
-        asset_server: &AssetServer,
+        sprite_atlas_handle: &SpriteAtlasHandle,
         x: f32,
         y: f32,
     ) -> EntityCommands<'w, 's, 'a> {
@@ -92,21 +105,16 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
             blueprint: Blueprint {
                 items: vec![Type::Empty; BLUEPRINT_SIZE],
             },
-            sprite: SpriteBundle {
+            sprite: SpriteSheetBundle {
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 5.0),
-                    scale: Vec3::new(0.95, 0.95, 0.0),
+                    scale: Vec3::new(0.8, 0.8, 1.0),
                     ..Default::default()
                 },
-                texture: asset_server.get_handle("player/body-line.png"),
-                sprite: Sprite {
-                    color: Color::rgba(0.0, 0.0, 0.0, 1.0),
-                    ..Default::default()
-                },
-                // sprite: Sprite {
-                //     color: Color::rgb(0.7, 0.7, 0.7),
-                //     ..Default::default()
-                // },
+                sprite: TextureAtlasSprite::new(
+                    sprite_atlas_handle.map[&"sprites/player/body-line.png".into()],
+                ),
+                texture_atlas: sprite_atlas_handle.handle.clone(),
                 ..Default::default()
             },
             rigid_body: RigidBodyBundle {
@@ -122,26 +130,72 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
             sync: RigidBodyPositionSync::Discrete,
         })
         .with_children(|parent| {
-            parent.spawn_bundle(SpriteBundle {
+            parent.spawn_bundle(SpriteSheetBundle {
                 transform: Transform {
                     translation: Vec3::new(0.0, -4.0, 4.0),
-                    // scale: Vec3::new(1.1, 1.1, 0.0),
                     ..Default::default()
                 },
-                texture: asset_server.get_handle("player/body-shadow.png"),
-                sprite: Sprite {
-                    color: Color::rgba(0.0, 0.0, 0.0, 1.0),
-                    ..Default::default()
-                },
+                sprite: TextureAtlasSprite::new(
+                    sprite_atlas_handle.map[&"sprites/player/body-shadow.png".into()],
+                ),
+                texture_atlas: sprite_atlas_handle.handle.clone(),
                 ..Default::default()
             });
         });
         e
     }
 
-    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a> {
+    fn spawn_sprite<'a>(
+        &'a mut self,
+        sprite_atlas_handle: &SpriteAtlasHandle,
+        id: Type,
+        pos: [f32; 2],
+    ) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
-        e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
+        // e
+        //     .insert_bundle(OUTLINES[id as usize](&asset_server, Usage::Storage))
+        //     .with_children(|parent| {
+        //         // parent.spawn_bundle(SpriteBundle {
+        //         //    // TODO: shadow
+        //         //     transform: Transform::from_translation(Vec3::new(0.0, -4.0, 4.0)),
+        //         //     texture: asset_server.get_handle("circle/shadow.png"),
+        //         //     ..Default::default()
+        //         // });
+        //         // parent.spawn_bundle(SpriteBundle {
+        //         //    // TODO: color
+        //         //     transform: Transform {
+        //         //         translation: Vec3::new(0.0, 0.0, 3.0),
+        //         //         ..Default::default()
+        //         //     },
+        //         //     texture: asset_server.get_handle("circle/color.png"),
+        //         //     ..Default::default()
+        //         // });
+        //     });
+        e
+    }
+
+    fn spawn_object<'a>(
+        &'a mut self,
+        sprite_atlas_handle: &SpriteAtlasHandle,
+        id: Type,
+        pos: [f32; 2],
+    ) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn();
+        e.insert_bundle(OBJECTS[id as usize](sprite_atlas_handle, Vec2::from(pos)))
+            .with_children(|parent| {
+                parent.spawn_bundle(SpriteSheetBundle {
+                    // TODO: color
+                    transform: Transform {
+                        translation: Vec3::new(0.0, -4.0, 6.0),
+                        ..Default::default()
+                    },
+                    sprite: TextureAtlasSprite::new(
+                        sprite_atlas_handle.map[&"sprites/circle/shadow.png".into()],
+                    ),
+                    texture_atlas: sprite_atlas_handle.handle.clone(),
+                    ..Default::default()
+                });
+            });
         match id {
             Type::Heart => {
                 e.insert(Heal::new(1, 0.1))

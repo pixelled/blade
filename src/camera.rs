@@ -38,6 +38,7 @@ pub fn setup_camera(mut commands: Commands) {
     commands
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(MainCamera::default());
+    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 pub fn move_camera(

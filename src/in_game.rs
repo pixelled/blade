@@ -9,10 +9,10 @@ use super::{AppState, TIME_STEP};
 use crate::bundle::*;
 use crate::component::*;
 use crate::magic::*;
-use crate::modify_texture_filter;
 use crate::particle::*;
 use crate::shape_mod::*;
 use crate::synthesis::SynthesisPlugin;
+use crate::SpriteAtlasHandle;
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 
@@ -36,7 +36,6 @@ impl Plugin for InGamePlugin {
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
-                    .with_system(modify_texture_filter)
                     .with_system(player_shadow_system), // .with_system(trail_system)
             )
             .add_system_set(
@@ -93,6 +92,7 @@ pub struct SpawnTimer(pub Timer);
 
 fn spawn_objects(
     mut commands: Commands,
+    sprite_atlas_handle: Res<SpriteAtlasHandle>,
     time: Res<Time>,
     mut timer: ResMut<SpawnTimer>,
     q: Query<&Object>,
@@ -101,21 +101,24 @@ fn spawn_objects(
         if q.iter().len() < 10 {
             let mut rng = thread_rng();
             let idx = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
-            commands.spawn_object(BASIC[idx as usize], [-50.0, 50.0]);
+            commands.spawn_object(
+                sprite_atlas_handle.as_ref(),
+                BASIC[idx as usize],
+                [-50.0, 50.0],
+            );
         }
     }
 }
 
 fn spawn_player(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    sprite_atlas_handle: Res<SpriteAtlasHandle>,
     mut entity_in_hand: ResMut<EntityInHand>,
 ) {
-    let player = commands
-        .spawn_player(asset_server.as_ref(), 0.0, -10.0)
-        .id();
+    let sprite_atlas_handle = sprite_atlas_handle.as_ref();
+    let player = commands.spawn_player(sprite_atlas_handle, 0.0, -10.0).id();
     let object = commands
-        .spawn_object(Type::Square, [10.0, -10.0])
+        .spawn_object(sprite_atlas_handle, Type::Square, [10.0, -10.0])
         .insert(Grabbed(player))
         .id();
     let axis = Vector::x_axis();
@@ -132,12 +135,16 @@ fn spawn_player(
 
 fn player_shadow_system(
     player_query: Query<(Entity, &Children), With<Player>>,
-    mut transform_query: Query<&mut Transform, With<Sprite>>,
+    mut transform_query: Query<&mut Transform, With<TextureAtlasSprite>>,
 ) {
     for (parent, children) in player_query.iter() {
         let parent_transform = transform_query.get(parent).unwrap();
         for child in children.iter() {
             let mut child_transform = transform_query.get_mut(*child).unwrap();
+            let v = parent_transform.rotation * Vec3::Y;
+            let d = 4.0;
+            child_transform.translation.x = d * v.x;
+            child_transform.translation.y = -d * v.y;
         }
     }
 }
@@ -469,7 +476,7 @@ fn despawn_dead_entities(
                 println!("player dead: {:?}", health.hp);
             }
             // println!("Despawn {:?}", e);
-            commands.entity(e).despawn();
+            commands.entity(e).despawn_recursive();
         }
     }
 }

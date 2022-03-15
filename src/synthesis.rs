@@ -9,6 +9,7 @@ use crate::shape_mod::*;
 use crate::ui::*;
 
 use crate::bundle::CommandsSpawner;
+use crate::SpriteAtlasHandle;
 use bevy::utils::HashMap;
 
 pub const STORAGE_SIZE: usize = 8;
@@ -23,13 +24,12 @@ impl Plugin for SynthesisPlugin {
             .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_table))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .with_system(set_recipe_global_transform)
+                    // .with_system(set_recipe_global_transform)
                     .with_system(storage_input)
                     .with_system(clear_entity)
                     .with_system(synthesize_entity)
                     .with_system(store_entity)
-                    .with_system(hold_stored_entity)
-                    .with_system(button_system),
+                    .with_system(hold_stored_entity), // .with_system(button_system),
             );
     }
 }
@@ -123,6 +123,7 @@ fn store_entity(
 
 fn hold_stored_entity(
     mut commands: Commands,
+    sprite_atlas_handle: Res<SpriteAtlasHandle>,
     windows: Res<Windows>,
     keyboard_input: Res<Input<KeyCode>>,
     storage_in_hand: Res<StorageInHand>,
@@ -142,8 +143,10 @@ fn hold_stored_entity(
                 let size = Vec2::new(window.width() as f32, window.height() as f32);
                 let pos = pos - size / 2.0;
                 let cursor_rot = UnitComplex::new(pos.y.atan2(pos.x));
+                let asset_server = sprite_atlas_handle.as_ref();
                 let object_entity = commands
                     .spawn_object(
+                        asset_server,
                         id,
                         [
                             rb_pos.position.translation.x + 7.0 * cursor_rot.cos_angle(),
