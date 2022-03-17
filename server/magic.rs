@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::camera::*;
 use crate::component::*;
-use crate::particle::*;
 use crate::AppState;
 use bevy::utils::Duration;
 
@@ -16,7 +14,6 @@ impl Plugin for MagicPlugin {
                 .with_system(heal_timer_system)
                 .with_system(heal_system)
                 .with_system(heal_animation_system)
-                .with_system(sight_system)
                 .with_system(magic_timer_system::<Frozen>)
                 .with_system(freeze_src_system)
                 .with_system(frozen_system)
@@ -88,7 +85,6 @@ fn heal_system(object_query: Query<(&Heal, &Grabbed)>, mut player_query: Query<&
 }
 
 fn heal_animation_system(
-    mut ev_particle: EventWriter<ScatteringParticles>,
     object_query: Query<(&Heal, &Grabbed)>,
     player_query: Query<&Transform, With<Player>>,
 ) {
@@ -96,12 +92,7 @@ fn heal_animation_system(
         if heal.timer.just_finished() {
             let player_entity = grabbed.0;
             let player_pos = player_query.get(player_entity).unwrap();
-            ev_particle.send(ScatteringParticles {
-                pos: Vec3::new(player_pos.translation.x, player_pos.translation.y, 20.0),
-                num: 3,
-                color: Color::rgb_u8(184, 248, 174),
-                ..Default::default()
-            });
+            // TODO: event
         }
     }
 }
@@ -115,19 +106,6 @@ pub struct Sight {
 impl Sight {
     pub fn new(scale: f32) -> Self {
         Sight { scale }
-    }
-}
-
-fn sight_system(
-    mut camera: Query<(&mut OrthographicProjection, &MainCamera)>,
-    object_query: Query<&Sight, With<Grabbed>>,
-) {
-    let (mut camera_config, camera) = camera.single_mut();
-    if object_query.is_empty() {
-        camera_config.scale = (camera_config.scale - camera.speed_z).max(1.0);
-    } else {
-        let sight = object_query.single();
-        camera_config.scale = (camera_config.scale + camera.speed_z).min(sight.scale);
     }
 }
 
@@ -203,17 +181,10 @@ fn frozen_system(mut frozen_query: Query<(&mut RigidBodyVelocityComponent, &Froz
 }
 
 fn frozen_animation_system(
-    mut ev_particle: EventWriter<ScatteringParticles>,
     frozen_query: Query<&Transform, With<Frozen>>,
 ) {
     for pos in frozen_query.iter() {
-        ev_particle.send(ScatteringParticles {
-            pos: Vec3::new(pos.translation.x, pos.translation.y, 21.0),
-            num: 1,
-            color: Color::rgb_u8(165, 242, 243),
-            vel_scale: 3.0,
-            ..Default::default()
-        });
+        // TODO: event
     }
 }
 
@@ -283,18 +254,12 @@ fn burn_src_system(
 }
 
 fn burned_system(
-    mut ev_particle: EventWriter<ScatteringParticles>,
     mut burned_query: Query<(&Transform, &mut Health, &mut Burned)>,
 ) {
     for (pos, mut health, burned) in burned_query.iter_mut() {
         if burned.interval.just_finished() {
             health.hp -= burned.dmg;
-            ev_particle.send(ScatteringParticles {
-                pos: Vec3::new(pos.translation.x, pos.translation.y, 21.0),
-                num: 20,
-                color: Color::RED,
-                ..Default::default()
-            });
+            // TODO: event
         }
     }
 }
@@ -362,17 +327,10 @@ fn paralyzed_system(mut paralyzed_query: Query<&mut RigidBodyVelocityComponent, 
 }
 
 fn paralyzed_animation_system(
-    mut ev_particle: EventWriter<ScatteringParticles>,
     paralyzed_query: Query<&Transform, With<Paralyzed>>,
 ) {
     for pos in paralyzed_query.iter() {
-        ev_particle.send(ScatteringParticles {
-            pos: Vec3::new(pos.translation.x, pos.translation.y, 20.0),
-            num: 1,
-            color: Color::YELLOW,
-            vel_scale: 3.0,
-            ..Default::default()
-        });
+        // TODO: event
     }
 }
 
@@ -391,7 +349,6 @@ impl Explode {
 
 fn explode_system(
     query_pipeline: Res<QueryPipeline>,
-    mut ev_explosion: EventWriter<ExplodeParticles>,
     collider_query: QueryPipelineColliderComponentsQuery,
     explode_query: Query<(Entity, &Explode, &Transform)>,
     mut health_query: Query<&mut Health>,
@@ -405,11 +362,7 @@ fn explode_system(
     for (explode_entity, explode, pos) in explode_query.iter() {
         let health = health_query.get(explode_entity).unwrap();
         if health.hp <= 0 {
-            // Animation
-            ev_explosion.send(ExplodeParticles::new(
-                Vec3::new(pos.translation.x, pos.translation.y, 25.0),
-                explode.radius,
-            ));
+            // TODO: animation event
             // Explosion on surrounding objects
             let (explode_pos, _, _) = rigid_bodies.get(explode_entity).unwrap();
             let explode_shape = ColliderShape::ball(explode.radius);

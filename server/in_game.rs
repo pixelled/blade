@@ -1,7 +1,6 @@
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::RigidBodyComponentsQueryPayload;
 use bevy_rapier2d::prelude::*;
 
@@ -9,10 +8,8 @@ use super::{AppState, TIME_STEP};
 use crate::bundle::*;
 use crate::component::*;
 use crate::magic::*;
-use crate::particle::*;
 use crate::shape_mod::*;
 use crate::synthesis::SynthesisPlugin;
-use crate::SpriteAtlasHandle;
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 
@@ -22,8 +19,6 @@ impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(MagicPlugin)
             .add_plugin(SynthesisPlugin)
-            .init_resource::<ObjectToPlayer>()
-            .insert_resource(TrailTimer(Timer::from_seconds(0.01, true)))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -36,7 +31,22 @@ impl Plugin for InGamePlugin {
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
                     .with_system(player_movement_system)
-                    .with_system(player_shadow_system), // .with_system(trail_system)
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(detect_objects_forward)
+                    .label("detect_objects_forward")
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(player_grab_system)
+                    .after("detect_objects_forward")
+                    .before("update_detected_objects")
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(update_shape_of_detected_objects)
+                    .label("update_detected_objects")
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -52,22 +62,6 @@ impl Plugin for InGamePlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_game_state)
                     .after("despawn_dead_entities"),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .label("detection")
-                    .with_system(detect_objects_forward),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .after("detection")
-                    .before("display")
-                    .with_system(player_grab_system),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .label("display")
-                    .with_system(update_shape_of_detected_objects),
             )
             .add_system_set(SystemSet::on_exit(AppState::InGame));
     }
@@ -92,7 +86,6 @@ pub struct SpawnTimer(pub Timer);
 
 fn spawn_objects(
     mut commands: Commands,
-    sprite_atlas_handle: Res<SpriteAtlasHandle>,
     time: Res<Time>,
     mut timer: ResMut<SpawnTimer>,
     q: Query<&Object>,
@@ -102,7 +95,6 @@ fn spawn_objects(
             let mut rng = thread_rng();
             let idx = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
             commands.spawn_object(
-                sprite_atlas_handle.as_ref(),
                 BASIC[idx as usize],
                 [-50.0, 50.0],
             );
@@ -112,13 +104,11 @@ fn spawn_objects(
 
 fn spawn_player(
     mut commands: Commands,
-    sprite_atlas_handle: Res<SpriteAtlasHandle>,
     mut entity_in_hand: ResMut<EntityInHand>,
 ) {
-    let sprite_atlas_handle = sprite_atlas_handle.as_ref();
-    let player = commands.spawn_player(sprite_atlas_handle, 0.0, -10.0).id();
+    let player = commands.spawn_player(0.0, -10.0).id();
     let object = commands
-        .spawn_object(sprite_atlas_handle, Type::Square, [10.0, -10.0])
+        .spawn_object(Type::Square, [10.0, -10.0])
         .insert(Grabbed(player))
         .id();
     let axis = Vector::x_axis();
@@ -131,22 +121,6 @@ fn spawn_player(
         .insert(JointBuilderComponent::new(joint, player, object));
     entity_in_hand.entity = Some(object);
     println!("spawned {:?} {:?}", player, object);
-}
-
-fn player_shadow_system(
-    player_query: Query<(Entity, &Children), With<Health>>,
-    mut transform_query: Query<&mut Transform, With<TextureAtlasSprite>>,
-) {
-    for (parent, children) in player_query.iter() {
-        let parent_transform = transform_query.get(parent).unwrap();
-        for child in children.iter() {
-            let mut child_transform = transform_query.get_mut(*child).unwrap();
-            let v = parent_transform.rotation * Vec3::Y;
-            let d = 5.0;
-            child_transform.translation.x = d * v.x;
-            child_transform.translation.y = -d * v.y;
-        }
-    }
 }
 
 fn player_rotate_system(
@@ -176,7 +150,6 @@ fn player_rotate_system(
 fn player_grab_system(
     mut commands: Commands,
     buttons: Res<Input<MouseButton>>,
-    // mut object_to_player: ResMut<ObjectToPlayer>,
     entity_in_range: Res<EntityInRange>,
     mut entity_in_hand: ResMut<EntityInHand>,
     player_query: Query<Entity, With<Player>>,
@@ -208,7 +181,6 @@ fn player_grab_system(
 fn player_throw_system(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    // mut object_to_player: ResMut<ObjectToPlayer>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -288,7 +260,7 @@ fn detect_objects_forward(
         query_pipeline.cast_ray(&collider_set, &ray, max_toi, solid, groups, filter)
     {
         if throwable_query.get(handle.entity()).is_ok() {
-            let _hit_point = ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
+            let _hit_point = ray.point_at(toi);
             entity_in_range.cur = Some(handle.entity());
             // println!("Entity {:?} hit at point {}", handle.entity(), hit_point);
         }
@@ -297,46 +269,7 @@ fn detect_objects_forward(
 
 fn update_shape_of_detected_objects(
     mut entity_in_range: ResMut<EntityInRange>,
-    mut query: Query<(&mut DrawMode, &Throwable)>,
 ) {
-    if entity_in_range.prev != entity_in_range.cur {
-        if let Some(entity) = entity_in_range.prev {
-            match query.get_mut(entity) {
-                Ok((mode, id)) => match mode.into_inner() {
-                    DrawMode::Outlined {
-                        fill_mode: _,
-                        outline_mode,
-                    } => {
-                        let c = outline_mode.color.as_hlsa_f32();
-                        *outline_mode = StrokeMode::new(
-                            Color::hsl(c[0], c[1], 0.4).into(),
-                            5.0 * SCALE[id.0 as usize],
-                        );
-                    }
-                    _ => {}
-                },
-                Err(_e) => {}
-            }
-        }
-        if let Some(entity) = entity_in_range.cur {
-            match query.get_mut(entity) {
-                Ok((mode, id)) => match mode.into_inner() {
-                    DrawMode::Outlined {
-                        fill_mode: _,
-                        outline_mode,
-                    } => {
-                        let c = outline_mode.color.as_hlsa_f32();
-                        *outline_mode = StrokeMode::new(
-                            Color::hsl(c[0], c[1], 0.1).into(),
-                            5.0 * SCALE[id.0 as usize],
-                        );
-                    }
-                    _ => {}
-                },
-                Err(_e) => {}
-            }
-        }
-    }
     entity_in_range.prev = entity_in_range.cur;
     entity_in_range.cur = None;
 }
@@ -415,28 +348,8 @@ fn collision_detection(
     }
 }
 
-struct TrailTimer(Timer);
-
-fn trail_system(
-    mut ev_particles: EventWriter<ScatteringParticles>,
-    time: Res<Time>,
-    mut timer: ResMut<TrailTimer>,
-    q: Query<&Transform, With<Player>>,
-) {
-    if timer.0.tick(time.delta()).just_finished() {
-        let player_pos = q.single();
-        ev_particles.send(ScatteringParticles {
-            pos: Vec3::new(player_pos.translation.x, player_pos.translation.y, 1.0),
-            num: 5,
-            color: Color::rgba(0.7, 0.7, 0.7, 1.0),
-            ..Default::default()
-        });
-    }
-}
-
 fn despawn_dead_entities(
     mut commands: Commands,
-    mut particle_ev: EventWriter<ScatteringParticles>,
     mut joint_set: ResMut<ImpulseJointSet>,
     mut island_manager: ResMut<IslandManager>,
     mut entity_in_hand: ResMut<EntityInHand>,
@@ -452,17 +365,10 @@ fn despawn_dead_entities(
     >,
     q1: Query<RigidBodyComponentsQueryPayload>,
 ) {
-    // println!("indespawn");
     let mut rigid_body_set = RigidBodyComponentsSet(q1);
     for (e, health, pos, grabbed, player) in q0.iter() {
         if health.hp <= 0 {
-            particle_ev.send(ScatteringParticles {
-                pos: Vec3::new(pos.translation.x, pos.translation.y, 15.0),
-                num: 50,
-                color: Color::rgba(0.2, 0.2, 0.2, 1.0),
-                vel_scale: 3.0,
-                ..Default::default()
-            });
+            // TODO: particle event
             if player.is_some() || grabbed.is_some() {
                 let rigid_body_handle: RigidBodyHandle = e.handle();
                 joint_set.remove_joints_attached_to_rigid_body(
@@ -475,23 +381,18 @@ fn despawn_dead_entities(
             if player.is_some() {
                 println!("player dead: {:?}", health.hp);
             }
-            // println!("Despawn {:?}", e);
+            println!("despawn {:?}", e);
             commands.entity(e).despawn_recursive();
         }
     }
 }
 
 fn update_game_state(
-    mut app_state: ResMut<State<AppState>>,
     player_health: Query<&Health, With<Player>>,
 ) {
-    match app_state.current() {
-        AppState::InGame => {
-            let health = player_health.single();
-            if health.hp <= 0 {
-                app_state.set(AppState::EndGame).unwrap();
-            }
+    for health in player_health.iter() {
+        if health.hp <= 0 {
+            // TODO:
         }
-        _ => {}
     }
 }
