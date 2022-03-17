@@ -134,7 +134,7 @@ fn spawn_player(
 }
 
 fn player_shadow_system(
-    player_query: Query<(Entity, &Children), With<Player>>,
+    player_query: Query<(Entity, &Children), With<Health>>,
     mut transform_query: Query<&mut Transform, With<TextureAtlasSprite>>,
 ) {
     for (parent, children) in player_query.iter() {
@@ -142,7 +142,7 @@ fn player_shadow_system(
         for child in children.iter() {
             let mut child_transform = transform_query.get_mut(*child).unwrap();
             let v = parent_transform.rotation * Vec3::Y;
-            let d = 4.0;
+            let d = 5.0;
             child_transform.translation.x = d * v.x;
             child_transform.translation.y = -d * v.y;
         }

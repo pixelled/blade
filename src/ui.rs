@@ -14,18 +14,18 @@ pub struct UIPlugin;
 //
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        //         app.init_resource::<StorageUIs>()
-        //             .init_resource::<BlueprintUIs>()
-        //             .add_system_set(
-        //                 SystemSet::on_enter(AppState::Setup)
-        //                     .with_system(init_ui)
+                app.init_resource::<StorageUIs>()
+                    // .init_resource::<BlueprintUIs>()
+                    .add_system_set(
+                        SystemSet::on_enter(AppState::Setup)
+                            // .with_system(init_ui)
         //                     .with_system(init_health_bar)
-        //                     .with_system(setup_storage_display)
+                            .with_system(setup_storage_display)
         //                     .with_system(setup_blueprint_display),
-        //             )
-        //             .add_system_set(
-        //                 SystemSet::on_update(AppState::InGame)
-        //                     .with_system(update_storage_display)
+                    )
+                    .add_system_set(
+                        SystemSet::on_update(AppState::InGame)
+                            .with_system(update_storage_display)
         //                     .with_system(update_blueprint_display)
         //                     .with_system(button_system)
         //                     .with_system(button_timer_system)
@@ -43,7 +43,7 @@ impl Plugin for UIPlugin {
         //                     .with_system(set_storage_global_transform)
         //                     .with_system(set_blueprint_global_transform)
         //                     .after("camera"),
-        //             );
+                    );
     }
 }
 //
@@ -141,10 +141,10 @@ impl Plugin for UIPlugin {
 // #[derive(Component)]
 // pub struct BlueprintBox;
 //
-// #[derive(Default)]
-// pub struct StorageUIs {
-//     pub entities: std::vec::Vec<Entity>,
-// }
+#[derive(Default)]
+pub struct StorageUIs {
+    pub entities: std::vec::Vec<Entity>,
+}
 //
 // #[derive(Default)]
 // pub struct BlueprintUIs {
@@ -152,10 +152,10 @@ impl Plugin for UIPlugin {
 //     pub res: std::vec::Vec<Entity>,
 // }
 //
-// #[derive(Component)]
-// pub struct StorageUI {
-//     pub child: Type,
-// }
+#[derive(Component)]
+pub struct StorageUI {
+    pub child: Type,
+}
 //
 // #[derive(Component)]
 // pub struct BlueprintUI {
@@ -662,77 +662,97 @@ impl Plugin for UIPlugin {
 //     }
 // }
 //
-// fn setup_storage_display(mut commands: Commands, mut storage_ui: ResMut<StorageUIs>) {
-//     let storage_ui = storage_ui.as_mut();
-//     commands
-//         .spawn_bundle((
-//             Transform {
-//                 translation: Vec3::new(0.0, 0.0, 3.0),
-//                 ..Default::default()
-//             },
-//             GlobalTransform::default(),
-//         ))
-//         .insert(StorageBox)
-//         .with_children(|parent| {
-//             let extents = Vec2::new(40.0, 40.0);
-//             let interval = 20.0;
-//             let mut cur_x = (STORAGE_SIZE - 1) as f32 * (-interval - extents.x) / 2.0;
-//             for _ in 0..STORAGE_SIZE {
-//                 let e = parent
-//                     .spawn_bundle(init_box(extents, Vec2::new(cur_x, 0.0)))
-//                     .insert(StorageUI { child: Type::Empty })
-//                     .with_children(|_| {})
-//                     .id();
-//                 storage_ui.entities.push(e);
-//                 cur_x += extents.x + interval;
-//             }
-//         });
-// }
+fn setup_storage_display(
+    mut commands: Commands,
+    mut asset_server: ResMut<AssetServer>,
+    mut storage_ui: ResMut<StorageUIs>,
+) {
+    let storage_ui = storage_ui.as_mut();
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(15.0)),
+                // padding: Rect::all(Val::Percent(25.0)),
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            color: Color::rgba(0.8, 0.8, 0.8, 0.0).into(),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            for _ in 0..STORAGE_SIZE {
+                parent.spawn_bundle(ImageBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(60.0), Val::Px(60.0)),
+                        margin: Rect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                    image: asset_server.load("sprites/storage/box.png").into(),
+                    ..Default::default()
+                }).with_children(|parent| {
+                        let e = parent.spawn_bundle(ImageBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
+                                ..Default::default()
+                            },
+                            image: asset_server.load("sprites/circle/color.png").into(),
+                            visibility: Visibility { is_visible: true},
+                            ..Default::default()
+                        }).insert(StorageUI { child: Type::Empty }).id();
+                        storage_ui.entities.push(e);
+                    });
+            }
+        });
+}
 //
-// fn update_storage_display(
-//     mut commands: Commands,
-//     storage_uis: Res<StorageUIs>,
-//     storage_in_hand: ResMut<StorageInHand>,
-//     storage: Query<&Storage>,
-//     mut q: Query<(&mut Children, &mut StorageUI)>,
-//     mut transform_query: Query<&mut Transform, With<StorageShape>>,
-// ) {
-//     let storage = storage.single();
-//     if storage_in_hand.cur != storage_in_hand.prev {
-//         if let Some(i) = storage_in_hand.prev {
-//             let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
-//             for child in children.iter() {
-//                 if let Ok(mut transform) = transform_query.get_mut(*child) {
-//                     transform.rotation = Quat::from_rotation_y(0.0);
-//                 }
-//             }
-//         }
-//     }
-//     if let Some(i) = storage_in_hand.cur {
-//         let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
-//         for child in children.iter() {
-//             if let Ok(mut transform) = transform_query.get_mut(*child) {
-//                 transform.rotation = transform.rotation.mul_quat(Quat::from_rotation_y(0.03));
-//             }
-//         }
-//     }
-//     for (i, &id) in storage.items.iter().enumerate() {
-//         let parent = storage_uis.entities[i];
-//         let (_, mut storage_ui): (_, Mut<StorageUI>) = q.get_mut(parent).unwrap();
-//         if id != storage_ui.child {
-//             commands.entity(parent).despawn_descendants();
-//             if id != Type::Empty {
-//                 let f = OUTLINES[(id) as usize];
-//                 let child = commands
-//                     .spawn_bundle(f(Usage::Storage))
-//                     .insert(StorageShape {})
-//                     .id();
-//                 commands.entity(parent).push_children(&[child]);
-//             }
-//             storage_ui.child = id;
-//         }
-//     }
-// }
+fn update_storage_display(
+    mut commands: Commands,
+    storage_uis: Res<StorageUIs>,
+    storage_in_hand: ResMut<StorageInHand>,
+    storage: Query<&Storage>,
+    mut q: Query<(&mut Children, &mut StorageUI)>,
+    // mut transform_query: Query<&mut Transform, With<StorageUI>>,
+) {
+    let storage = storage.single();
+    // if storage_in_hand.cur != storage_in_hand.prev {
+    //     if let Some(i) = storage_in_hand.prev {
+    //         let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+    //         for child in children.iter() {
+    //             if let Ok(mut transform) = transform_query.get_mut(*child) {
+    //                 transform.rotation = Quat::from_rotation_y(0.0);
+    //             }
+    //         }
+    //     }
+    // }
+    // if let Some(i) = storage_in_hand.cur {
+    //     let (children, _) = q.get_mut(storage_uis.entities[i]).unwrap();
+    //     for child in children.iter() {
+    //         if let Ok(mut transform) = transform_query.get_mut(*child) {
+    //             transform.rotation = transform.rotation.mul_quat(Quat::from_rotation_y(0.03));
+    //         }
+    //     }
+    // }
+    // for (i, &id) in storage.items.iter().enumerate() {
+    //     let parent = storage_uis.entities[i];
+    //     let (_, mut storage_ui): (_, Mut<StorageUI>) = q.get_mut(parent).unwrap();
+    //     if id != storage_ui.child {
+    //         commands.entity(parent).despawn_descendants();
+    //         if id != Type::Empty {
+    //             let f = OUTLINES[(id) as usize];
+    //             let child = commands
+    //                 .spawn_bundle(f(Usage::Storage))
+    //                 .id();
+    //             commands.entity(parent).push_children(&[child]);
+    //         }
+    //         storage_ui.child = id;
+    //     }
+    // }
+}
 //
 // fn set_storage_global_transform(
 //     wnds: Res<Windows>,

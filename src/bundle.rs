@@ -184,7 +184,6 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
         e.insert_bundle(OBJECTS[id as usize](sprite_atlas_handle, Vec2::from(pos)))
             .with_children(|parent| {
                 parent.spawn_bundle(SpriteSheetBundle {
-                    // TODO: color
                     transform: Transform {
                         translation: Vec3::new(0.0, -4.0, 6.0),
                         ..Default::default()
