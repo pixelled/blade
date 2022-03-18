@@ -180,9 +180,7 @@ fn frozen_system(mut frozen_query: Query<(&mut RigidBodyVelocityComponent, &Froz
     }
 }
 
-fn frozen_animation_system(
-    frozen_query: Query<&Transform, With<Frozen>>,
-) {
+fn frozen_animation_system(frozen_query: Query<&Transform, With<Frozen>>) {
     for pos in frozen_query.iter() {
         // TODO: event
     }
@@ -253,9 +251,7 @@ fn burn_src_system(
     }
 }
 
-fn burned_system(
-    mut burned_query: Query<(&Transform, &mut Health, &mut Burned)>,
-) {
+fn burned_system(mut burned_query: Query<(&Transform, &mut Health, &mut Burned)>) {
     for (pos, mut health, burned) in burned_query.iter_mut() {
         if burned.interval.just_finished() {
             health.hp -= burned.dmg;
@@ -326,9 +322,7 @@ fn paralyzed_system(mut paralyzed_query: Query<&mut RigidBodyVelocityComponent, 
     }
 }
 
-fn paralyzed_animation_system(
-    paralyzed_query: Query<&Transform, With<Paralyzed>>,
-) {
+fn paralyzed_animation_system(paralyzed_query: Query<&Transform, With<Paralyzed>>) {
     for pos in paralyzed_query.iter() {
         // TODO: event
     }

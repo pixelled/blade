@@ -17,8 +17,7 @@ pub struct SynthesisPlugin;
 
 impl Plugin for SynthesisPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<StorageInHand>()
+        app.init_resource::<StorageInHand>()
             .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(setup_table))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -26,7 +25,7 @@ impl Plugin for SynthesisPlugin {
                     .with_system(clear_entity)
                     .with_system(synthesize_entity)
                     .with_system(store_entity)
-                    .with_system(hold_stored_entity)
+                    .with_system(hold_stored_entity),
             );
     }
 }

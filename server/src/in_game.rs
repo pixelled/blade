@@ -30,23 +30,23 @@ impl Plugin for InGamePlugin {
                     .with_system(spawn_objects)
                     .with_system(player_rotate_system)
                     .with_system(player_throw_system)
-                    .with_system(player_movement_system)
+                    .with_system(player_movement_system),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(detect_objects_forward)
-                    .label("detect_objects_forward")
+                    .label("detect_objects_forward"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(player_grab_system)
                     .after("detect_objects_forward")
-                    .before("update_detected_objects")
+                    .before("update_detected_objects"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_shape_of_detected_objects)
-                    .label("update_detected_objects")
+                    .label("update_detected_objects"),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -94,18 +94,12 @@ fn spawn_objects(
         if q.iter().len() < 10 {
             let mut rng = thread_rng();
             let idx = rng.gen_range::<u8, _>(0..BASIC.len() as u8);
-            commands.spawn_object(
-                BASIC[idx as usize],
-                [-50.0, 50.0],
-            );
+            commands.spawn_object(BASIC[idx as usize], [-50.0, 50.0]);
         }
     }
 }
 
-fn spawn_player(
-    mut commands: Commands,
-    mut entity_in_hand: ResMut<EntityInHand>,
-) {
+fn spawn_player(mut commands: Commands, mut entity_in_hand: ResMut<EntityInHand>) {
     let player = commands.spawn_player(0.0, -10.0).id();
     let object = commands
         .spawn_object(Type::Square, [10.0, -10.0])
@@ -267,9 +261,7 @@ fn detect_objects_forward(
     }
 }
 
-fn update_shape_of_detected_objects(
-    mut entity_in_range: ResMut<EntityInRange>,
-) {
+fn update_shape_of_detected_objects(mut entity_in_range: ResMut<EntityInRange>) {
     entity_in_range.prev = entity_in_range.cur;
     entity_in_range.cur = None;
 }
@@ -387,9 +379,7 @@ fn despawn_dead_entities(
     }
 }
 
-fn update_game_state(
-    player_health: Query<&Health, With<Player>>,
-) {
+fn update_game_state(player_health: Query<&Health, With<Player>>) {
     for health in player_health.iter() {
         if health.hp <= 0 {
             // TODO:

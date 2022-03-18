@@ -1,15 +1,4 @@
-[package]
-name = "blade"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bevy = "0.6.0"
-bevy_rapier2d = { git = "https://github.com/dimforge/bevy_rapier", branch = "master", features = ["simd-stable"]}
-rand = '0.8'
-itertools = "0.10"
-interpolation = "0.2.0"
-num_enum = "0.5.6"
-bevy-web-resizer = "0.1.0"
+members = ["server","client", "shared"]
+resolver = "2"

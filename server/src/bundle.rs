@@ -56,25 +56,13 @@ impl Default for ObjectBundle {
 }
 
 pub trait CommandsSpawner<'w, 's> {
-    fn spawn_player<'a>(
-        &'a mut self,
-        x: f32,
-        y: f32,
-    ) -> EntityCommands<'w, 's, 'a>;
+    fn spawn_player<'a>(&'a mut self, x: f32, y: f32) -> EntityCommands<'w, 's, 'a>;
 
-    fn spawn_object<'a>(
-        &'a mut self,
-        id: Type,
-        pos: [f32; 2],
-    ) -> EntityCommands<'w, 's, 'a>;
+    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a>;
 }
 
 impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
-    fn spawn_player<'a>(
-        &'a mut self,
-        x: f32,
-        y: f32,
-    ) -> EntityCommands<'w, 's, 'a> {
+    fn spawn_player<'a>(&'a mut self, x: f32, y: f32) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
         e.insert_bundle(PlayerBundle {
             player: Player {},
@@ -101,11 +89,7 @@ impl<'w, 's> CommandsSpawner<'w, 's> for Commands<'w, 's> {
         e
     }
 
-    fn spawn_object<'a>(
-        &'a mut self,
-        id: Type,
-        pos: [f32; 2],
-    ) -> EntityCommands<'w, 's, 'a> {
+    fn spawn_object<'a>(&'a mut self, id: Type, pos: [f32; 2]) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
         e.insert_bundle(OBJECTS[id as usize](Vec2::from(pos)));
         match id {

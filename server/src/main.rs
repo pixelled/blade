@@ -47,10 +47,7 @@ enum AppState {
     EndGame,
 }
 
-fn setup_game(
-    mut commands: Commands,
-    mut config: ResMut<RapierConfiguration>,
-) {
+fn setup_game(mut commands: Commands, mut config: ResMut<RapierConfiguration>) {
     config.gravity = Vec2::new(0.0, 0.0).into();
     config.scale = RAPIER_TO_BEVY;
     spawn_boundary(&mut commands);
@@ -63,9 +60,7 @@ fn setup_game(
     commands.insert_resource(SpawnTimer(Timer::from_seconds(1.0, true)))
 }
 
-fn enter_game(
-    mut app_state: ResMut<State<AppState>>,
-) {
+fn enter_game(mut app_state: ResMut<State<AppState>>) {
     let _ = app_state.set(AppState::InGame).unwrap();
 }
 
